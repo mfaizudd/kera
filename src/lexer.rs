@@ -22,9 +22,13 @@ impl Lexer {
         return self.input.get(self.position);
     }
 
+    fn peek_char(&self) -> Option<&char> {
+        return self.input.get(self.position + 1);
+    }
+
     fn read_identifier(&mut self) -> String {
         let mut result = String::new();
-        while self.char().is_some() && is_letter(self.char().unwrap()) {
+        while self.char().is_some_and(is_letter) {
             result.push(self.char().unwrap().to_owned());
             self.increment();
         }
@@ -33,7 +37,7 @@ impl Lexer {
 
     fn read_number(&mut self) -> isize {
         let mut result = String::new();
-        while self.char().is_some() && self.char().unwrap().is_ascii_digit() {
+        while self.char().is_some_and(|c| c.is_ascii_digit()) {
             result.push(self.char().unwrap().to_owned());
             self.increment();
         }
@@ -41,7 +45,7 @@ impl Lexer {
     }
 
     fn skip_whitespace(&mut self) {
-        while self.char().is_some() && self.char().unwrap().is_whitespace() {
+        while self.char().is_some_and(|c| c.is_whitespace()) {
             self.increment()
         }
     }
@@ -54,14 +58,28 @@ impl Iterator for Lexer {
         self.skip_whitespace();
         if let Some(character) = self.char() {
             let token = match character {
-                '=' => Token::Assign,
+                '=' => {
+                    if self.peek_char().is_some_and(|c| c == &'=') {
+                        self.increment();
+                        Token::Equal
+                    } else {
+                        Token::Assign
+                    }
+                }
                 ';' => Token::Semicolon,
                 '(' => Token::LeftParen,
                 ')' => Token::RightParen,
                 ',' => Token::Comma,
                 '+' => Token::Plus,
                 '-' => Token::Minus,
-                '!' => Token::Bang,
+                '!' => {
+                    if self.peek_char().is_some_and(|c| c == &'=') {
+                        self.increment();
+                        Token::NotEqual
+                    } else {
+                        Token::Bang
+                    }
+                }
                 '/' => Token::Slash,
                 '*' => Token::Asterisk,
                 '<' => Token::LessThan,
@@ -111,7 +129,10 @@ mod tests {
                 kembalikan benar;
             } lainnya {
                 kembalikan salah;
-            }"#,
+            }
+
+            10 == 10;
+            10 != 9;"#,
         );
         let tests = vec![
             Some(Token::Let),
@@ -179,6 +200,14 @@ mod tests {
             Some(Token::False),
             Some(Token::Semicolon),
             Some(Token::RightBrace),
+            Some(Token::Int(10)),
+            Some(Token::Equal),
+            Some(Token::Int(10)),
+            Some(Token::Semicolon),
+            Some(Token::Int(10)),
+            Some(Token::NotEqual),
+            Some(Token::Int(9)),
+            Some(Token::Semicolon),
             None,
         ];
         let mut lexer = Lexer::new(input);
