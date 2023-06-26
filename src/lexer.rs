@@ -60,6 +60,12 @@ impl Iterator for Lexer {
                 ')' => Token::RightParen,
                 ',' => Token::Comma,
                 '+' => Token::Plus,
+                '-' => Token::Minus,
+                '!' => Token::Bang,
+                '/' => Token::Slash,
+                '*' => Token::Asterisk,
+                '<' => Token::LessThan,
+                '>' => Token::GreaterThan,
                 '{' => Token::LeftBrace,
                 '}' => Token::RightBrace,
                 ch => {
@@ -98,7 +104,9 @@ mod tests {
             misal tambah = fungsi(x, y) {
                 x + y;
             };
-            misal hasil = tambah(lima, sepuluh);"#,
+            misal hasil = tambah(lima, sepuluh);
+            !-/*5;
+            5 < 10 > 5;"#,
         );
         let tests = vec![
             Some(Token::Let),
@@ -136,6 +144,18 @@ mod tests {
             Some(Token::Comma),
             Some(Token::Ident("sepuluh".into())),
             Some(Token::RightParen),
+            Some(Token::Semicolon),
+            Some(Token::Bang),
+            Some(Token::Minus),
+            Some(Token::Slash),
+            Some(Token::Asterisk),
+            Some(Token::Int(5)),
+            Some(Token::Semicolon),
+            Some(Token::Int(5)),
+            Some(Token::LessThan),
+            Some(Token::Int(10)),
+            Some(Token::GreaterThan),
+            Some(Token::Int(5)),
             Some(Token::Semicolon),
             None,
         ];
