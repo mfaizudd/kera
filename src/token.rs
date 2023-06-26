@@ -1,10 +1,13 @@
+use derive_more::Display;
 use phf::phf_map;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Display, PartialEq, Eq, Clone)]
 pub enum Token {
     Illegal,
 
+    #[display(fmt = r#"Ident("{}")"#, _0)]
     Ident(String),
+    #[display(fmt = "Int({})", _0)]
     Int(isize),
 
     Assign,

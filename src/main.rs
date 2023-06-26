@@ -1,3 +1,7 @@
+use kera::repl;
+
 fn main() {
-    println!("Hello, world!");
+    println!("Hallo, ini adalah bahasa pemrograman kera!");
+    println!("Jangan ragu untuk mengetikkan perintah!");
+    repl::start();
 }
