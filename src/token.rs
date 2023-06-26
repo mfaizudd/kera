@@ -26,11 +26,21 @@ pub enum Token {
 
     Function,
     Let,
+    True,
+    False,
+    If,
+    Else,
+    Return,
 }
 
 static KEYWORDS: phf::Map<&'static str, Token> = phf_map! {
     "fungsi" => Token::Function,
     "misal" => Token::Let,
+    "benar" => Token::True,
+    "salah" => Token::False,
+    "jika" => Token::If,
+    "lainnya" => Token::Else,
+    "kembalikan" => Token::Return,
 };
 
 impl Token {

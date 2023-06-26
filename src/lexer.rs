@@ -106,7 +106,12 @@ mod tests {
             };
             misal hasil = tambah(lima, sepuluh);
             !-/*5;
-            5 < 10 > 5;"#,
+            5 < 10 > 5;
+            jika (5 < 10) {
+                kembalikan benar;
+            } lainnya {
+                kembalikan salah;
+            }"#,
         );
         let tests = vec![
             Some(Token::Let),
@@ -157,6 +162,23 @@ mod tests {
             Some(Token::GreaterThan),
             Some(Token::Int(5)),
             Some(Token::Semicolon),
+            Some(Token::If),
+            Some(Token::LeftParen),
+            Some(Token::Int(5)),
+            Some(Token::LessThan),
+            Some(Token::Int(10)),
+            Some(Token::RightParen),
+            Some(Token::LeftBrace),
+            Some(Token::Return),
+            Some(Token::True),
+            Some(Token::Semicolon),
+            Some(Token::RightBrace),
+            Some(Token::Else),
+            Some(Token::LeftBrace),
+            Some(Token::Return),
+            Some(Token::False),
+            Some(Token::Semicolon),
+            Some(Token::RightBrace),
             None,
         ];
         let mut lexer = Lexer::new(input);
