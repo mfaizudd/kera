@@ -33,7 +33,7 @@ impl Lexer {
 
     fn read_number(&mut self) -> isize {
         let mut result = String::new();
-        while self.char().is_some() && self.char().unwrap().is_numeric() {
+        while self.char().is_some() && self.char().unwrap().is_ascii_digit() {
             result.push(self.char().unwrap().to_owned());
             self.increment();
         }
@@ -66,7 +66,7 @@ impl Iterator for Lexer {
                     if is_letter(ch) {
                         let identifier = self.read_identifier();
                         return Some(Token::parse_keyword(identifier));
-                    } else if ch.is_numeric() {
+                    } else if ch.is_ascii_digit() {
                         let number = self.read_number();
                         return Some(Token::Int(number));
                     } else {
