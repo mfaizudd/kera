@@ -58,45 +58,37 @@ impl Iterator for Lexer {
         self.skip_whitespace();
         if let Some(character) = self.char() {
             let token = match character {
-                '=' => {
-                    if self.peek_char().is_some_and(|c| c == &'=') {
-                        self.increment();
-                        Token::Equal
-                    } else {
-                        Token::Assign
-                    }
+                '=' if self.peek_char().is_some_and(|c| c == &'=') => {
+                    self.increment();
+                    Token::Equal
                 }
+                '=' => Token::Assign,
                 ';' => Token::Semicolon,
                 '(' => Token::LeftParen,
                 ')' => Token::RightParen,
                 ',' => Token::Comma,
                 '+' => Token::Plus,
                 '-' => Token::Minus,
-                '!' => {
-                    if self.peek_char().is_some_and(|c| c == &'=') {
-                        self.increment();
-                        Token::NotEqual
-                    } else {
-                        Token::Bang
-                    }
+                '!' if self.peek_char().is_some_and(|c| c == &'=') => {
+                    self.increment();
+                    Token::NotEqual
                 }
+                '!' => Token::Bang,
                 '/' => Token::Slash,
                 '*' => Token::Asterisk,
                 '<' => Token::LessThan,
                 '>' => Token::GreaterThan,
                 '{' => Token::LeftBrace,
                 '}' => Token::RightBrace,
-                ch => {
-                    if is_letter(ch) {
-                        let identifier = self.read_identifier();
-                        return Some(Token::parse_keyword(identifier));
-                    } else if ch.is_ascii_digit() {
-                        let number = self.read_number();
-                        return Some(Token::Int(number));
-                    } else {
-                        Token::Illegal
-                    }
+                ch if is_letter(ch) => {
+                    let identifier = self.read_identifier();
+                    return Some(Token::parse_keyword(identifier));
                 }
+                ch if ch.is_ascii_digit() => {
+                    let number = self.read_number();
+                    return Some(Token::Int(number));
+                }
+                _ => Token::Illegal,
             };
             self.increment();
             return Some(token);
