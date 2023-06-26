@@ -1,4 +1,6 @@
-#[derive(Debug, PartialEq, Eq)]
+use phf::phf_map;
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Token {
     Illegal,
 
@@ -20,18 +22,16 @@ pub enum Token {
     Let,
 }
 
-impl From<&char> for Token {
-    fn from(character: &char) -> Token {
-        match character {
-            '=' => Token::Assign,
-            ';' => Token::Semicolon,
-            '(' => Token::LeftParen,
-            ')' => Token::RightParen,
-            ',' => Token::Comma,
-            '+' => Token::Plus,
-            '{' => Token::LeftBrace,
-            '}' => Token::RightBrace,
-            _ => Token::Illegal,
+static KEYWORDS: phf::Map<&'static str, Token> = phf_map! {
+    "fungsi" => Token::Function,
+    "misal" => Token::Let,
+};
+
+impl Token {
+    pub fn parse_keyword(keyword: String) -> Token {
+        if let Some(token) = KEYWORDS.get(&keyword) {
+            return token.to_owned();
         }
+        Token::Ident(keyword)
     }
 }
