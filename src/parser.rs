@@ -44,32 +44,25 @@ impl Parser {
     }
 
     fn parse_let_statement(&mut self) -> Option<LetStatement> {
-        let let_token = self.current_token.clone();
-
-        // Get identifier
-        if self.peek_token.is_none() {
-            return None;
-        }
-        let peek_token = self.peek_token.as_ref().unwrap();
-        let name = if let Token::Ident(name) = peek_token {
-            let identifier = Identifier {
-                token: peek_token.clone(),
-                value: name.into(),
-            };
-            self.next_token();
-            identifier
-        } else {
+        let Some(Token::Let) = self.current_token.as_ref() else {
             return None;
         };
+        self.next_token();
+
+        // Get identifier
+        let Some(Token::Ident(name)) = self.current_token.as_ref() else {
+            return None;
+        };
+        let name = Identifier {
+            token: Token::Ident(name.into()),
+        };
+        self.next_token();
 
         // Check for assign token
-        self.next_token();
-        let assign = self.current_token.as_ref();
-        if let Some(Token::Assign) = assign {
-            self.next_token();
-        } else {
+        let Some(Token::Assign) = self.current_token.as_ref() else {
             return None;
-        }
+        };
+        self.next_token();
 
         // Skip to semicolon
         while let Some(t) = self.current_token.as_ref() {
@@ -81,25 +74,16 @@ impl Parser {
         }
 
         let expression = Expression::Identifier(name.clone());
-        let_token.and_then(|t| {
-            if let Token::Let = t {
-                return Some(LetStatement {
-                    name,
-                    token: t,
-                    value: expression,
-                })
-            }
-            None
+        Some(LetStatement {
+            token: Token::Let,
+            name,
+            value: expression,
         })
     }
 
     fn parse_program(&mut self) -> Option<Program> {
         let mut program = Program { statements: vec![] };
-        while self
-            .current_token
-            .as_ref()
-            .is_some_and(|t| matches!(t, Token::Let))
-        {
+        while let Some(Token::Let) = self.current_token.as_ref() {
             let statement = self.parse_statement();
             if let Some(statement) = statement {
                 program.statements.push(statement);
@@ -114,7 +98,11 @@ impl Parser {
 mod tests {
     use core::panic;
 
-    use crate::{ast::Statement, lexer::Lexer};
+    use crate::{
+        ast::{Identifier, Statement},
+        lexer::Lexer,
+        token::Token,
+    };
 
     use super::Parser;
 
@@ -149,9 +137,11 @@ mod tests {
     fn test_let_statement(statement: &Statement, name: &str) {
         if let Statement::LetStatement(s) = statement {
             assert_eq!(
-                s.name.value, name,
+                s.name.token,
+                Token::Ident(name.into()),
                 "Expected statement.name.value '{}', got '{}'",
-                name, s.name.value
+                name,
+                s.name.token
             )
         } else {
             panic!("Not a let statement, got '{:?}'", statement)
