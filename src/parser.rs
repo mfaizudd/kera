@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::{
     ast::{Expression, Identifier, LetStatement, Program, Statement},
     lexer::Lexer,
@@ -98,11 +96,7 @@ impl Parser {
 mod tests {
     use core::panic;
 
-    use crate::{
-        ast::{Identifier, Statement},
-        lexer::Lexer,
-        token::Token,
-    };
+    use crate::{ast::Statement, lexer::Lexer, token::Token};
 
     use super::Parser;
 
