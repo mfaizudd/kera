@@ -1,7 +1,7 @@
 use derive_more::Display;
 use phf::phf_map;
 
-#[derive(Debug, Display, PartialEq, Eq, Clone)]
+#[derive(Debug, Display, PartialEq, Clone)]
 pub enum Token {
     Illegal,
 
