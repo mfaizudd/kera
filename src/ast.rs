@@ -56,4 +56,5 @@ pub struct LetStatement {
 #[derive(Debug, Clone)]
 pub struct Identifier {
     pub token: Token,
+    pub value: String,
 }

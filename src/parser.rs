@@ -52,6 +52,7 @@ impl Parser {
         };
         let name = Identifier {
             token: Token::Ident(name.into()),
+            value: name.into(),
         };
         self.next_token();
 
@@ -131,11 +132,9 @@ mod tests {
     fn test_let_statement(statement: &Statement, name: &str) {
         if let Statement::LetStatement(s) = statement {
             assert_eq!(
-                s.name.token,
-                Token::Ident(name.into()),
+                s.name.value, name,
                 "Expected statement.name.value '{}', got '{}'",
-                name,
-                s.name.token
+                name, s.name.value
             )
         } else {
             panic!("Not a let statement, got '{:?}'", statement)
