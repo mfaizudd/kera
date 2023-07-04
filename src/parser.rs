@@ -55,7 +55,7 @@ impl Parser {
 
         // Get identifier
         let Some(Token::Ident(name)) = self.peek_token.as_ref() else {
-            self.errors.push(format!("Expected Identifier, got {:?}", self.current_token));
+            self.errors.push(format!("Expected Identifier, got {:?}", self.peek_token));
             return None;
         };
         let name = Identifier {
@@ -66,7 +66,7 @@ impl Parser {
 
         // Check for assign token
         let Some(Token::Assign) = self.peek_token.as_ref() else {
-            self.errors.push(format!("Expected {}, got {:?}", Token::Assign, self.current_token));
+            self.errors.push(format!("Expected {}, got {:?}", Token::Assign, self.peek_token));
             return None;
         };
         self.next_token();
@@ -109,7 +109,7 @@ impl Parser {
 mod tests {
     use core::panic;
 
-    use crate::{ast::Statement, lexer::Lexer, token::Token};
+    use crate::{ast::Statement, lexer::Lexer};
 
     use super::Parser;
 
