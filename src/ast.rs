@@ -40,7 +40,7 @@ impl Program {
     pub fn token(&self) -> Option<&Token> {
         self.statements.get(0).and_then(|s| Some(s.token()))
     }
-    
+
     pub fn statements(&self) -> &Vec<Statement> {
         &self.statements
     }
