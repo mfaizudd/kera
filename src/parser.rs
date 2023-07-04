@@ -45,10 +45,9 @@ impl Parser {
         let Some(Token::Let) = self.current_token.as_ref() else {
             return None;
         };
-        self.next_token();
 
         // Get identifier
-        let Some(Token::Ident(name)) = self.current_token.as_ref() else {
+        let Some(Token::Ident(name)) = self.peek_token.as_ref() else {
             return None;
         };
         let name = Identifier {
@@ -57,19 +56,20 @@ impl Parser {
         self.next_token();
 
         // Check for assign token
-        let Some(Token::Assign) = self.current_token.as_ref() else {
+        let Some(Token::Assign) = self.peek_token.as_ref() else {
             return None;
         };
         self.next_token();
 
         // Skip to semicolon
-        while let Some(t) = self.current_token.as_ref() {
+        while let Some(t) = self.peek_token.as_ref() {
             let Token::Semicolon = t else {
                 self.next_token();
                 continue
             };
             break;
         }
+        self.next_token();
 
         let expression = Expression::Identifier(name.clone());
         Some(LetStatement {
