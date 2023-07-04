@@ -8,6 +8,7 @@ pub struct Parser {
     lexer: Lexer,
     current_token: Option<Token>,
     peek_token: Option<Token>,
+    errors: Vec<String>,
 }
 
 impl Parser {
@@ -16,10 +17,15 @@ impl Parser {
             lexer,
             current_token: None,
             peek_token: None,
+            errors: vec![],
         };
         parser.next_token();
         parser.next_token();
         parser
+    }
+
+    pub fn errors(&self) -> &Vec<String> {
+        &self.errors
     }
 
     fn next_token(&mut self) {
@@ -43,11 +49,13 @@ impl Parser {
 
     fn parse_let_statement(&mut self) -> Option<LetStatement> {
         let Some(Token::Let) = self.current_token.as_ref() else {
+            self.errors.push(format!("Expected {}, got {:?}", Token::Let, self.current_token));
             return None;
         };
 
         // Get identifier
         let Some(Token::Ident(name)) = self.peek_token.as_ref() else {
+            self.errors.push(format!("Expected Identifier, got {:?}", self.current_token));
             return None;
         };
         let name = Identifier {
@@ -58,6 +66,7 @@ impl Parser {
 
         // Check for assign token
         let Some(Token::Assign) = self.peek_token.as_ref() else {
+            self.errors.push(format!("Expected {}, got {:?}", Token::Assign, self.current_token));
             return None;
         };
         self.next_token();
@@ -80,7 +89,7 @@ impl Parser {
         })
     }
 
-    fn parse_program(&mut self) -> Option<Program> {
+    fn parse_program(&mut self) -> Result<Program, &Vec<String>> {
         let mut program = Program { statements: vec![] };
         while let Some(Token::Let) = self.current_token.as_ref() {
             let statement = self.parse_statement();
@@ -89,7 +98,10 @@ impl Parser {
             }
             self.next_token();
         }
-        Some(program)
+        if self.errors().len() > 0 {
+            return Err(self.errors());
+        }
+        Ok(program)
     }
 }
 
@@ -110,9 +122,12 @@ mod tests {
         "#;
         let lexer = Lexer::new(input.into());
         let mut parser = Parser::new(lexer);
-        let program = parser
-            .parse_program()
-            .expect("parser.parse_program() returns None");
+        let program = match parser.parse_program() {
+            Ok(program) => program,
+            Err(errors) => {
+                panic!("Parser has errors: {:?}", errors)
+            }
+        };
         assert_eq!(
             program.statements().len(),
             3,
