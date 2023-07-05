@@ -1,4 +1,5 @@
 use crate::lexer::Lexer;
+use crate::parser::Parser;
 use std::io;
 use std::io::Write;
 
@@ -13,8 +14,9 @@ pub fn start() {
         let mut input = String::new();
         stdin.read_line(&mut input).expect("Invalid input");
         let lexer = Lexer::new(input);
-        for token in lexer {
-            println!("{}", token);
+        let mut parser = Parser::new(lexer);
+        if let Err(errors) = parser.parse_program() {
+            println!("Parse errors: {:?}", errors)
         }
     }
 }

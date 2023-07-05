@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Expression, Identifier, LetStatement, Program, Statement},
+    ast::{Expression, Identifier, LetStatement, Program, ReturnStatement, Statement},
     lexer::Lexer,
     token::Token,
 };
@@ -40,6 +40,11 @@ impl Parser {
                     return self
                         .parse_let_statement()
                         .map(|s| Statement::LetStatement(s))
+                }
+                Token::Return => {
+                    return self
+                        .parse_return_statement()
+                        .map(|s| Statement::ReturnStatement(s))
                 }
                 _ => return None,
             }
@@ -89,9 +94,33 @@ impl Parser {
         })
     }
 
-    fn parse_program(&mut self) -> Result<Program, &Vec<String>> {
+    fn parse_return_statement(&mut self) -> Option<ReturnStatement> {
+        let Some(Token::Return) = self.current_token.as_ref() else {
+            self.errors.push(format!("Expected return statement, found {:?}", self.current_token));
+            return None;
+        };
+        // Skip to semicolon
+        while let Some(t) = self.peek_token.as_ref() {
+            let Token::Semicolon = t else {
+                self.next_token();
+                continue
+            };
+            break;
+        }
+        self.next_token();
+
+        Some(ReturnStatement {
+            token: Token::Return,
+            return_value: Expression::Identifier(Identifier {
+                token: Token::Ident("name".into()),
+                value: "name".into(),
+            }),
+        })
+    }
+
+    pub fn parse_program(&mut self) -> Result<Program, &Vec<String>> {
         let mut program = Program { statements: vec![] };
-        while let Some(Token::Let) = self.current_token.as_ref() {
+        while let Some(_) = self.current_token.as_ref() {
             let statement = self.parse_statement();
             if let Some(statement) = statement {
                 program.statements.push(statement);
@@ -153,6 +182,35 @@ mod tests {
             )
         } else {
             panic!("Not a let statement, got '{:?}'", statement)
+        }
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let input = r#"
+        kembalikan 5;
+        kembalikan 10;
+        kembalikan 112233;
+        "#;
+        let lexer = Lexer::new(input.into());
+        let mut parser = Parser::new(lexer);
+        let program = match parser.parse_program() {
+            Ok(program) => program,
+            Err(errors) => {
+                panic!("Parser has errors: {:?}", errors)
+            }
+        };
+        assert_eq!(
+            program.statements().len(),
+            3,
+            "program.statements does not contain 3 statements, got {}",
+            program.statements().len()
+        );
+
+        for statement in program.statements() {
+            let Statement::ReturnStatement(_) = statement else {
+                panic!("Statement is not return statement, got '{:?}'", statement)
+            };
         }
     }
 }
