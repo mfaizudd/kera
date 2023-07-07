@@ -1,4 +1,4 @@
-use derive_more::Display;
+use kera_macros::Node;
 
 use crate::token::Token;
 
@@ -34,35 +34,39 @@ impl Node for Expression {
     }
 }
 
+#[derive(Debug)]
 pub struct Program {
     pub statements: Vec<Statement>,
 }
 
+#[allow(dead_code)]
 impl Program {
-    pub fn token(&self) -> Option<&Token> {
-        self.statements.get(0).and_then(|s| Some(s.token()))
-    }
-
     pub fn statements(&self) -> &Vec<Statement> {
         &self.statements
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Node)]
 pub struct LetStatement {
     pub token: Token,
     pub name: Identifier,
     pub value: Expression,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Node)]
 pub struct ReturnStatement {
     pub token: Token,
     pub return_value: Expression,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Node)]
 pub struct Identifier {
     pub token: Token,
     pub value: String,
+}
+
+#[derive(Debug, Node)]
+pub struct ExpressionStatement {
+    pub token: Token,
+    pub expression: Expression,
 }

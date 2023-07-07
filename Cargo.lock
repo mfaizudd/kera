@@ -26,7 +26,16 @@ name = "kera"
 version = "0.1.0"
 dependencies = [
  "derive_more",
+ "kera-macros",
  "phf",
+]
+
+[[package]]
+name = "kera-macros"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.22",
 ]
 
 [[package]]

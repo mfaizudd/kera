@@ -15,8 +15,10 @@ pub fn start() {
         stdin.read_line(&mut input).expect("Invalid input");
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
-        if let Err(errors) = parser.parse_program() {
-            println!("Parse errors: {:?}", errors)
+        let program = parser.parse_program();
+        match program {
+            Ok(p) => println!("{:?}", p),
+            Err(errors) => println!("Parse errors: {:?}", errors),
         }
     }
 }

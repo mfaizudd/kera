@@ -213,4 +213,14 @@ mod tests {
             };
         }
     }
+
+    #[test]
+    fn test_identifier_expression() {
+        let input = "foobar;";
+        let lexer = Lexer::new(input.into());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program().unwrap();
+        assert_eq!(1, program.statements().len());
+        let statement = program.statements().get(0).unwrap();
+    }
 }
