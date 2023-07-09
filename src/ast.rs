@@ -10,6 +10,7 @@ pub trait Node {
 pub enum Statement {
     LetStatement(LetStatement),
     ReturnStatement(ReturnStatement),
+    ExpressionStatement(ExpressionStatement),
 }
 
 impl Node for Statement {
@@ -17,6 +18,7 @@ impl Node for Statement {
         match self {
             Statement::LetStatement(s) => &s.token,
             Statement::ReturnStatement(s) => &s.token,
+            Statement::ExpressionStatement(s) => &s.token,
         }
     }
 }

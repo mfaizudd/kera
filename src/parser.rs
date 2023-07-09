@@ -138,7 +138,11 @@ impl Parser {
 mod tests {
     use core::panic;
 
-    use crate::{ast::Statement, lexer::Lexer};
+    use crate::{
+        ast::{Node, Statement},
+        lexer::Lexer,
+        token::Token,
+    };
 
     use super::Parser;
 
@@ -222,5 +226,9 @@ mod tests {
         let program = parser.parse_program().unwrap();
         assert_eq!(1, program.statements().len());
         let statement = program.statements().get(0).unwrap();
+        let Statement::ExpressionStatement(expression) = statement else {
+            panic!("Expected an expression statement, found {:?}", statement)
+        };
+        assert_eq!(&Token::Ident("foobar".into()), expression.token())
     }
 }
