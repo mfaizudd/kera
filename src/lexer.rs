@@ -35,13 +35,13 @@ impl Lexer {
         result
     }
 
-    fn read_number(&mut self) -> isize {
+    fn read_number(&mut self) -> i64 {
         let mut result = String::new();
         while self.char().is_some_and(|c| c.is_ascii_digit()) {
             result.push(self.char().unwrap().to_owned());
             self.increment();
         }
-        result.parse::<isize>().unwrap()
+        result.parse::<i64>().unwrap()
     }
 
     fn skip_whitespace(&mut self) {

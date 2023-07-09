@@ -8,7 +8,7 @@ pub enum Token {
     #[display(fmt = r#"Ident("{}")"#, _0)]
     Ident(String),
     #[display(fmt = "Int({})", _0)]
-    Int(isize),
+    Int(i64),
 
     Assign,
     Plus,

@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{Expression, Identifier, LetStatement, Program, ReturnStatement, Statement},
+    ast::{
+        Expression, Identifier, IntegerLiteral, LetStatement, Program, ReturnStatement, Statement,
+    },
     lexer::Lexer,
     token::{Token, TokenType},
 };
@@ -22,8 +24,26 @@ pub struct Parser {
     current_token: Option<Token>,
     peek_token: Option<Token>,
     errors: Vec<String>,
-    prefix_parse_functions: HashMap<TokenType, fn(&Parser) -> Option<Expression>>,
+    prefix_parse_functions: HashMap<TokenType, fn(&mut Parser) -> Option<Expression>>,
     _infix_parse_functions: HashMap<TokenType, fn(Expression) -> Expression>,
+}
+
+macro_rules! expect_current {
+    ($self:ident, $result:pat_param, $type:expr) => {
+        let $result = $self.current_token.as_ref() else {
+                    $self.errors.push(format!("Expected {}, got {:?}", $type, $self.current_token));
+                    return None
+                };
+    };
+}
+
+macro_rules! expect_peek {
+    ($self:ident, $result:pat_param, $type:expr) => {
+        let $result = $self.peek_token.as_ref() else {
+                    $self.errors.push(format!("Expected {}, got {:?}", $type, $self.current_token));
+                    return None
+                };
+    };
 }
 
 impl Parser {
@@ -40,24 +60,33 @@ impl Parser {
         parser.next_token();
 
         parser.register_prefix(TokenType::Ident, Parser::parse_identifier);
+        parser.register_prefix(TokenType::Int, Parser::parse_integer_literal);
 
         parser
     }
 
-    fn parse_identifier(&self) -> Option<Expression> {
-        let Some(Token::Ident(ident)) = self.current_token.as_ref() else {
-            return None
-        };
+    fn parse_identifier(&mut self) -> Option<Expression> {
+        expect_current!(self, Some(Token::Ident(ident)), "identifier");
+
         Some(Expression::Identifier(Identifier {
             token: Token::Ident(ident.into()),
             value: ident.into(),
         }))
     }
 
+    fn parse_integer_literal(&mut self) -> Option<Expression> {
+        expect_current!(self, Some(Token::Int(literal)), "integer");
+
+        Some(Expression::IntegerLiteral(IntegerLiteral {
+            token: Token::Int(*literal),
+            value: *literal,
+        }))
+    }
+
     fn register_prefix(
         &mut self,
         token_type: TokenType,
-        function: fn(&Parser) -> Option<Expression>,
+        function: fn(&mut Parser) -> Option<Expression>,
     ) {
         self.prefix_parse_functions.insert(token_type, function);
     }
@@ -99,16 +128,10 @@ impl Parser {
     }
 
     fn parse_let_statement(&mut self) -> Option<LetStatement> {
-        let Some(Token::Let) = self.current_token.as_ref() else {
-            self.errors.push(format!("Expected {}, got {:?}", Token::Let, self.current_token));
-            return None;
-        };
+        expect_current!(self, Some(Token::Let), Token::Let);
 
         // Get identifier
-        let Some(Token::Ident(name)) = self.peek_token.as_ref() else {
-            self.errors.push(format!("Expected Identifier, got {:?}", self.peek_token));
-            return None;
-        };
+        expect_peek!(self, Some(Token::Ident(name)), "identifier");
         let name = Identifier {
             token: Token::Ident(name.into()),
             value: name.into(),
@@ -116,10 +139,7 @@ impl Parser {
         self.next_token();
 
         // Check for assign token
-        let Some(Token::Assign) = self.peek_token.as_ref() else {
-            self.errors.push(format!("Expected {}, got {:?}", Token::Assign, self.peek_token));
-            return None;
-        };
+        expect_peek!(self, Some(Token::Assign), Token::Assign);
         self.next_token();
 
         // Skip to semicolon
@@ -141,10 +161,8 @@ impl Parser {
     }
 
     fn parse_return_statement(&mut self) -> Option<ReturnStatement> {
-        let Some(Token::Return) = self.current_token.as_ref() else {
-            self.errors.push(format!("Expected return statement, found {:?}", self.current_token));
-            return None;
-        };
+        expect_current!(self, Some(Token::Return), "return statement");
+
         // Skip to semicolon
         while let Some(t) = self.peek_token.as_ref() {
             let Token::Semicolon = t else {
@@ -153,6 +171,7 @@ impl Parser {
             };
             break;
         }
+
         self.next_token();
 
         Some(ReturnStatement {
@@ -164,7 +183,7 @@ impl Parser {
         })
     }
 
-    fn parse_expression(&self, _precedence: Precedence) -> Option<Expression> {
+    fn parse_expression(&mut self, _precedence: Precedence) -> Option<Expression> {
         let token = self.current_token.clone()?;
         let prefix = self.prefix_parse_functions.get(&token.to_type())?;
         prefix(self)
