@@ -91,7 +91,7 @@ impl Parser {
                 _ => {
                     return self
                         .parse_expression_statement()
-                        .map(|s| Statement::ExpressionStatement(s))
+                        .map(|s| Statement::Expression(s))
                 }
             }
         }
@@ -293,9 +293,28 @@ mod tests {
             program
         );
         let statement = program.statements().get(0).unwrap();
-        let Statement::ExpressionStatement(expression) = statement else {
+        let Statement::Expression(expression) = statement else {
             panic!("Expected an expression statement, found {:?}", statement)
         };
         assert_eq!(&Token::Ident("foobar".into()), expression.token())
+    }
+
+    #[test]
+    fn test_integer_literal_expression() {
+        let input = "5;";
+        let lexer = Lexer::new(input.into());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program().unwrap();
+        assert_eq!(
+            1,
+            program.statements().len(),
+            "Parsed program: {:?}",
+            program
+        );
+        let statement = program.statements().get(0).unwrap();
+        let Statement::Expression(expression) = statement else {
+            panic!("Expected an expression statement, found {:?}", statement)
+        };
+        assert_eq!(&Token::Int(5), expression.token())
     }
 }

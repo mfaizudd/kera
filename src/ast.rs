@@ -6,34 +6,50 @@ pub trait Node {
     fn token(&self) -> &Token;
 }
 
-#[derive(Debug)]
-pub enum Statement {
-    LetStatement(LetStatement),
-    ReturnStatement(ReturnStatement),
-    ExpressionStatement(Expression),
-}
-
-impl Node for Statement {
-    fn token(&self) -> &Token {
-        match self {
-            Statement::LetStatement(s) => &s.token,
-            Statement::ReturnStatement(s) => &s.token,
-            Statement::ExpressionStatement(e) => e.token(),
+macro_rules! define_statements {
+    ($($name:ident)*) => {
+        #[derive(Debug)]
+        pub enum Statement {
+            $($name($name),)*
         }
-    }
-}
 
-#[derive(Debug)]
-pub enum Expression {
-    Identifier(Identifier),
-}
-
-impl Node for Expression {
-    fn token(&self) -> &Token {
-        match self {
-            Expression::Identifier(e) => &e.token,
+        impl Node for Statement {
+            fn token(&self) -> &Token {
+                match self {
+                    $(Statement::$name(s) => s.token(),)*
+                }
+            }
         }
-    }
+    };
+}
+
+macro_rules! define_expressions {
+    ($($name:ident)*) => {
+        #[derive(Debug)]
+        #[allow(dead_code)]
+        pub enum Expression {
+            $($name($name),)*
+        }
+
+        impl Node for Expression {
+            fn token(&self) -> &Token {
+                match self {
+                    $(Expression::$name(e) => e.token(),)*
+                }
+            }
+        }
+    };
+}
+
+define_statements! {
+    LetStatement
+    ReturnStatement
+    Expression
+}
+
+define_expressions! {
+    Identifier
+    IntegerLiteral
 }
 
 #[derive(Debug)]
@@ -67,3 +83,8 @@ pub struct Identifier {
     pub value: String,
 }
 
+#[derive(Debug, Node)]
+pub struct IntegerLiteral {
+    pub token: Token,
+    pub value: i64,
+}
