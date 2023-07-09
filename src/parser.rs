@@ -1,7 +1,12 @@
+use std::collections::HashMap;
+
 use crate::{
-    ast::{Expression, Identifier, LetStatement, Program, ReturnStatement, Statement},
+    ast::{
+        Expression, ExpressionStatement, Identifier, LetStatement, Program, ReturnStatement,
+        Statement,
+    },
     lexer::Lexer,
-    token::Token,
+    token::{Token, TokenType},
 };
 
 pub struct Parser {
@@ -9,6 +14,8 @@ pub struct Parser {
     current_token: Option<Token>,
     peek_token: Option<Token>,
     errors: Vec<String>,
+    prefix_parse_functions: HashMap<TokenType, fn(&Parser) -> Option<Expression>>,
+    _infix_parse_functions: HashMap<TokenType, fn(Expression) -> Expression>,
 }
 
 impl Parser {
@@ -18,10 +25,37 @@ impl Parser {
             current_token: None,
             peek_token: None,
             errors: vec![],
+            prefix_parse_functions: HashMap::new(),
+            _infix_parse_functions: HashMap::new(),
         };
         parser.next_token();
         parser.next_token();
+
+        parser.register_prefix(TokenType::Ident, Parser::parse_identifier);
+
         parser
+    }
+
+    fn parse_identifier(&self) -> Option<Expression> {
+        let Some(Token::Ident(ident)) = self.current_token.as_ref() else {
+            return None
+        };
+        Some(Expression::Identifier(Identifier {
+            token: Token::Ident(ident.into()),
+            value: ident.into(),
+        }))
+    }
+
+    fn register_prefix(
+        &mut self,
+        token_type: TokenType,
+        function: fn(&Parser) -> Option<Expression>,
+    ) {
+        self.prefix_parse_functions.insert(token_type, function);
+    }
+
+    fn _register_infix(&mut self, token_type: TokenType, function: fn(Expression) -> Expression) {
+        self._infix_parse_functions.insert(token_type, function);
     }
 
     pub fn errors(&self) -> &Vec<String> {
@@ -46,7 +80,11 @@ impl Parser {
                         .parse_return_statement()
                         .map(|s| Statement::ReturnStatement(s))
                 }
-                _ => return None,
+                _ => {
+                    return self
+                        .parse_expression_statement()
+                        .map(|s| Statement::ExpressionStatement(s))
+                }
             }
         }
         None
@@ -116,6 +154,28 @@ impl Parser {
                 value: "name".into(),
             }),
         })
+    }
+
+    fn parse_expression_statement(&mut self) -> Option<ExpressionStatement> {
+        let token = self.current_token.clone()?;
+        let prefix = self.prefix_parse_functions.get(&token.to_type())?;
+        let expression = prefix(self)?;
+        let statement = ExpressionStatement {
+            token: token.clone(),
+            expression,
+        };
+
+        // Skip to semicolon
+        while let Some(t) = self.peek_token.as_ref() {
+            let Token::Semicolon = t else {
+                self.next_token();
+                continue
+            };
+            break;
+        }
+        self.next_token();
+
+        Some(statement)
     }
 
     pub fn parse_program(&mut self) -> Result<Program, &Vec<String>> {
@@ -224,7 +284,12 @@ mod tests {
         let lexer = Lexer::new(input.into());
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program().unwrap();
-        assert_eq!(1, program.statements().len());
+        assert_eq!(
+            1,
+            program.statements().len(),
+            "Parsed program: {:?}",
+            program
+        );
         let statement = program.statements().get(0).unwrap();
         let Statement::ExpressionStatement(expression) = statement else {
             panic!("Expected an expression statement, found {:?}", statement)
