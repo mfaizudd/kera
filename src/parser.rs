@@ -1,8 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     ast::{
-        Expression, Identifier, IntegerLiteral, LetStatement, Program, ReturnStatement, Statement,
+        Expression, Identifier, IntegerLiteral, LetStatement, Prefix, Program, ReturnStatement,
+        Statement,
     },
     lexer::Lexer,
     token::{Token, TokenType},
@@ -30,19 +31,30 @@ pub struct Parser {
 
 macro_rules! expect_current {
     ($self:ident, $result:pat_param, $type:expr) => {
-        let $result = $self.current_token.as_ref() else {
-                    $self.errors.push(format!("Expected {}, got {:?}", $type, $self.current_token));
-                    return None
-                };
+        let Some(token) = $self.current_token.as_ref() else {
+                            $self.errors.push(format!("Expected {}", $type));
+                            return None
+                        };
+        let $result = token else {
+                            $self.errors.push(format!("Expected {}, got {:?}", $type, token));
+                            return None
+                        };
     };
 }
 
 macro_rules! expect_peek {
+    ($self:ident, $result:pat_param) => {
+        expect_peek!($self, $result, $result)
+    };
     ($self:ident, $result:pat_param, $type:expr) => {
-        let $result = $self.peek_token.as_ref() else {
-                    $self.errors.push(format!("Expected {}, got {:?}", $type, $self.current_token));
-                    return None
-                };
+        let Some(token) = $self.peek_token.as_ref() else {
+                            $self.errors.push(format!("Expected {}", $type));
+                            return None;
+                        };
+        let $result = token else {
+                            $self.errors.push(format!("Expected {}, got {:?}", $type, token));
+                            return None
+                        };
     };
 }
 
@@ -61,12 +73,14 @@ impl Parser {
 
         parser.register_prefix(TokenType::Ident, Parser::parse_identifier);
         parser.register_prefix(TokenType::Int, Parser::parse_integer_literal);
+        parser.register_prefix(TokenType::Bang, Parser::parse_prefix_expression);
+        parser.register_prefix(TokenType::Minus, Parser::parse_prefix_expression);
 
         parser
     }
 
     fn parse_identifier(&mut self) -> Option<Expression> {
-        expect_current!(self, Some(Token::Ident(ident)), "identifier");
+        expect_current!(self, Token::Ident(ident), "identifier");
 
         Some(Expression::Identifier(Identifier {
             token: Token::Ident(ident.into()),
@@ -75,11 +89,27 @@ impl Parser {
     }
 
     fn parse_integer_literal(&mut self) -> Option<Expression> {
-        expect_current!(self, Some(Token::Int(literal)), "integer");
+        expect_current!(self, Token::Int(literal), "integer");
 
         Some(Expression::IntegerLiteral(IntegerLiteral {
             token: Token::Int(*literal),
             value: *literal,
+        }))
+    }
+
+    fn parse_prefix_expression(&mut self) -> Option<Expression> {
+        let Some(token) = self.current_token.clone() else {
+            self.errors.push("Expected expression".into());
+            return None;
+        };
+        self.next_token();
+        let Some(right) = self.parse_expression(Precedence::Prefix) else {
+            self.errors.push("Expected expression".into());
+            return None;
+        };
+        Some(Expression::Prefix(Prefix {
+            token: token.clone(),
+            right: Rc::new(right),
         }))
     }
 
@@ -128,10 +158,10 @@ impl Parser {
     }
 
     fn parse_let_statement(&mut self) -> Option<LetStatement> {
-        expect_current!(self, Some(Token::Let), Token::Let);
+        expect_current!(self, Token::Let, "let");
 
         // Get identifier
-        expect_peek!(self, Some(Token::Ident(name)), "identifier");
+        expect_peek!(self, Token::Ident(name), "identifier");
         let name = Identifier {
             token: Token::Ident(name.into()),
             value: name.into(),
@@ -139,7 +169,7 @@ impl Parser {
         self.next_token();
 
         // Check for assign token
-        expect_peek!(self, Some(Token::Assign), Token::Assign);
+        expect_peek!(self, Token::Assign, Token::Assign);
         self.next_token();
 
         // Skip to semicolon
@@ -161,7 +191,7 @@ impl Parser {
     }
 
     fn parse_return_statement(&mut self) -> Option<ReturnStatement> {
-        expect_current!(self, Some(Token::Return), "return statement");
+        expect_current!(self, Token::Return, "return statement");
 
         // Skip to semicolon
         while let Some(t) = self.peek_token.as_ref() {
@@ -185,7 +215,10 @@ impl Parser {
 
     fn parse_expression(&mut self, _precedence: Precedence) -> Option<Expression> {
         let token = self.current_token.clone()?;
-        let prefix = self.prefix_parse_functions.get(&token.to_type())?;
+        let Some(prefix) = self.prefix_parse_functions.get(&token.to_type()) else {
+            self.errors.push(format!("Expected expression, found {:?}", token));
+            return None;
+        };
         prefix(self)
     }
 
@@ -220,7 +253,7 @@ mod tests {
     use core::panic;
 
     use crate::{
-        ast::{Node, Statement},
+        ast::{Expression, Node, Statement},
         lexer::Lexer,
         token::Token,
     };
@@ -335,5 +368,49 @@ mod tests {
             panic!("Expected an expression statement, found {:?}", statement)
         };
         assert_eq!(&Token::Int(5), expression.token())
+    }
+
+    #[test]
+    fn test_parsing_prefix_expressions() {
+        struct TestCase<'a> {
+            input: &'a str,
+            operator: Token,
+            value: i64,
+        }
+        let tests = vec![
+            TestCase {
+                input: "!5;",
+                operator: Token::Bang,
+                value: 5,
+            },
+            TestCase {
+                input: "-15;",
+                operator: Token::Minus,
+                value: 15,
+            },
+        ];
+        for case in tests {
+            let lexer = Lexer::new(case.input.into());
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program().unwrap();
+            assert_eq!(
+                1,
+                program.statements().len(),
+                "Parsed program: {:?}",
+                program
+            );
+            let statement = program.statements().get(0).unwrap();
+            let Statement::Expression(expression) = statement else {
+                panic!("Expected an expression statement, found {:?}", statement)
+            };
+            let Expression::Prefix(prefix) = expression else {
+                panic!("Expected a prefix, found {:?}", statement)
+            };
+            assert_eq!(&case.operator, prefix.token());
+            let Expression::IntegerLiteral(value) = &*prefix.right else {
+                panic!("Expected an integer literal, found {:?}", prefix.right)
+            };
+            assert_eq!(case.value, value.value)
+        }
     }
 }

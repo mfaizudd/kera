@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use kera_macros::Node;
 
 use crate::token::Token;
@@ -50,6 +52,7 @@ define_statements! {
 define_expressions! {
     Identifier
     IntegerLiteral
+    Prefix
 }
 
 #[derive(Debug)]
@@ -87,4 +90,10 @@ pub struct Identifier {
 pub struct IntegerLiteral {
     pub token: Token,
     pub value: i64,
+}
+
+#[derive(Debug, Node)]
+pub struct Prefix {
+    pub token: Token,
+    pub right: Rc<Expression>,
 }
