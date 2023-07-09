@@ -1,13 +1,21 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{
-        Expression, ExpressionStatement, Identifier, LetStatement, Program, ReturnStatement,
-        Statement,
-    },
+    ast::{Expression, Identifier, LetStatement, Program, ReturnStatement, Statement},
     lexer::Lexer,
     token::{Token, TokenType},
 };
+
+#[allow(dead_code)]
+enum Precedence {
+    Lowest,
+    Equals,
+    LessGreater,
+    Sum,
+    Product,
+    Prefix,
+    Call,
+}
 
 pub struct Parser {
     lexer: Lexer,
@@ -156,26 +164,20 @@ impl Parser {
         })
     }
 
-    fn parse_expression_statement(&mut self) -> Option<ExpressionStatement> {
+    fn parse_expression(&self, _precedence: Precedence) -> Option<Expression> {
         let token = self.current_token.clone()?;
         let prefix = self.prefix_parse_functions.get(&token.to_type())?;
-        let expression = prefix(self)?;
-        let statement = ExpressionStatement {
-            token: token.clone(),
-            expression,
-        };
+        prefix(self)
+    }
 
-        // Skip to semicolon
-        while let Some(t) = self.peek_token.as_ref() {
-            let Token::Semicolon = t else {
-                self.next_token();
-                continue
-            };
-            break;
+    fn parse_expression_statement(&mut self) -> Option<Expression> {
+        let expression = self.parse_expression(Precedence::Lowest)?;
+
+        if let Some(Token::Semicolon) = self.peek_token {
+            self.next_token();
         }
-        self.next_token();
 
-        Some(statement)
+        Some(expression)
     }
 
     pub fn parse_program(&mut self) -> Result<Program, &Vec<String>> {

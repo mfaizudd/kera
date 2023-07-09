@@ -10,7 +10,7 @@ pub trait Node {
 pub enum Statement {
     LetStatement(LetStatement),
     ReturnStatement(ReturnStatement),
-    ExpressionStatement(ExpressionStatement),
+    ExpressionStatement(Expression),
 }
 
 impl Node for Statement {
@@ -18,7 +18,7 @@ impl Node for Statement {
         match self {
             Statement::LetStatement(s) => &s.token,
             Statement::ReturnStatement(s) => &s.token,
-            Statement::ExpressionStatement(s) => &s.token,
+            Statement::ExpressionStatement(e) => e.token(),
         }
     }
 }
@@ -67,8 +67,3 @@ pub struct Identifier {
     pub value: String,
 }
 
-#[derive(Debug, Node)]
-pub struct ExpressionStatement {
-    pub token: Token,
-    pub expression: Expression,
-}
