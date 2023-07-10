@@ -1,5 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
+use anyhow::anyhow;
+
 use crate::{
     ast::{
         Expression, Identifier, IntegerLiteral, LetStatement, Prefix, Program, ReturnStatement,
@@ -18,6 +20,24 @@ enum Precedence {
     Product,
     Prefix,
     Call,
+}
+
+impl TryFrom<Token> for Precedence {
+    type Error = anyhow::Error;
+
+    fn try_from(value: Token) -> Result<Self, Self::Error> {
+        match value {
+            Token::Equal => Ok(Precedence::Equals),
+            Token::NotEqual => Ok(Precedence::Equals),
+            Token::LessThan => Ok(Precedence::LessGreater),
+            Token::GreaterThan => Ok(Precedence::LessGreater),
+            Token::Plus => Ok(Precedence::Sum),
+            Token::Minus => Ok(Precedence::Sum),
+            Token::Slash => Ok(Precedence::Product),
+            Token::Asterisk => Ok(Precedence::Product),
+            _ => Err(anyhow!("No precedence found for this token")),
+        }
+    }
 }
 
 pub struct Parser {
@@ -77,6 +97,11 @@ impl Parser {
         parser.register_prefix(TokenType::Minus, Parser::parse_prefix_expression);
 
         parser
+    }
+
+    fn current_precedence(&self) -> Option<Precedence> {
+        let token = self.current_token?;
+        token.try_into().ok()
     }
 
     fn parse_identifier(&mut self) -> Option<Expression> {
@@ -411,6 +436,98 @@ mod tests {
                 panic!("Expected an integer literal, found {:?}", prefix.right)
             };
             assert_eq!(case.value, value.value)
+        }
+    }
+
+    #[test]
+    fn test_parsing_infix_expressions() {
+        struct TestCase<'a> {
+            input: &'a str,
+            left_value: i64,
+            operator: Token,
+            right_value: i64,
+        }
+        let tests = vec![
+            TestCase {
+                input: "5 + 5;",
+                left_value: 5,
+                operator: Token::Plus,
+                right_value: 5,
+            },
+            TestCase {
+                input: "5 - 5;",
+                left_value: 5,
+                operator: Token::Minus,
+                right_value: 5,
+            },
+            TestCase {
+                input: "5 * 5;",
+                left_value: 5,
+                operator: Token::Asterisk,
+                right_value: 5,
+            },
+            TestCase {
+                input: "5 / 5;",
+                left_value: 5,
+                operator: Token::Slash,
+                right_value: 5,
+            },
+            TestCase {
+                input: "5 > 5;",
+                left_value: 5,
+                operator: Token::GreaterThan,
+                right_value: 5,
+            },
+            TestCase {
+                input: "5 < 5;",
+                left_value: 5,
+                operator: Token::LessThan,
+                right_value: 5,
+            },
+            TestCase {
+                input: "5 == 5;",
+                left_value: 5,
+                operator: Token::Equal,
+                right_value: 5,
+            },
+            TestCase {
+                input: "5 != 5;",
+                left_value: 5,
+                operator: Token::NotEqual,
+                right_value: 5,
+            },
+        ];
+
+        for case in tests {
+            let lexer = Lexer::new(case.input.into());
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program().unwrap();
+            assert_eq!(
+                1,
+                program.statements().len(),
+                "Parsed program: {:?}",
+                program
+            );
+
+            let statement = program.statements().get(0).unwrap();
+            let Statement::Expression(expression) = statement else {
+                panic!("Expected an expression statement, found {:?}", statement)
+            };
+
+            let Expression::Infix(infix) = expression else {
+                panic!("Expected a prefix, found {:?}", statement)
+            };
+            assert_eq!(&case.operator, infix.token());
+
+            let Expression::IntegerLiteral(left) = &*infix.left else {
+                panic!("Expected an integer literal, found {:?}", infix.right)
+            };
+            assert_eq!(case.left_value, left.value);
+
+            let Expression::IntegerLiteral(right) = &*infix.right else {
+                panic!("Expected an integer literal, found {:?}", infix.right)
+            };
+            assert_eq!(case.right_value, right.value);
         }
     }
 }

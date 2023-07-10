@@ -53,6 +53,7 @@ define_expressions! {
     Identifier
     IntegerLiteral
     Prefix
+    Infix
 }
 
 #[derive(Debug)]
@@ -95,5 +96,12 @@ pub struct IntegerLiteral {
 #[derive(Debug, Node)]
 pub struct Prefix {
     pub token: Token,
+    pub right: Rc<Expression>,
+}
+
+#[derive(Debug, Node)]
+pub struct Infix {
+    pub token: Token,
+    pub left: Rc<Expression>,
     pub right: Rc<Expression>,
 }

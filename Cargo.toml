@@ -11,3 +11,4 @@ members = ["crates/kera-macros"]
 derive_more = "0.99.17"
 kera-macros = { path = "crates/kera-macros" }
 phf = { version = "0.11", features = ["macros"] }
+anyhow = "1"
