@@ -4,8 +4,8 @@ use anyhow::anyhow;
 
 use crate::{
     ast::{
-        Expression, Identifier, IntegerLiteral, LetStatement, Prefix, Program, ReturnStatement,
-        Statement,
+        Expression, Identifier, Infix, IntegerLiteral, LetStatement, Prefix, Program,
+        ReturnStatement, Statement,
     },
     lexer::Lexer,
     token::{Token, TokenType},
@@ -46,7 +46,7 @@ pub struct Parser {
     peek_token: Option<Token>,
     errors: Vec<String>,
     prefix_parse_functions: HashMap<TokenType, fn(&mut Parser) -> Option<Expression>>,
-    _infix_parse_functions: HashMap<TokenType, fn(Expression) -> Expression>,
+    infix_parse_functions: HashMap<TokenType, fn(&mut Parser, Expression) -> Option<Expression>>,
 }
 
 macro_rules! expect_current {
@@ -86,7 +86,7 @@ impl Parser {
             peek_token: None,
             errors: vec![],
             prefix_parse_functions: HashMap::new(),
-            _infix_parse_functions: HashMap::new(),
+            infix_parse_functions: HashMap::new(),
         };
         parser.next_token();
         parser.next_token();
@@ -96,12 +96,30 @@ impl Parser {
         parser.register_prefix(TokenType::Bang, Parser::parse_prefix_expression);
         parser.register_prefix(TokenType::Minus, Parser::parse_prefix_expression);
 
+        parser.register_infix(TokenType::Plus, Parser::parse_infix_expression);
+        parser.register_infix(TokenType::Minus, Parser::parse_infix_expression);
+        parser.register_infix(TokenType::Slash, Parser::parse_infix_expression);
+        parser.register_infix(TokenType::Asterisk, Parser::parse_infix_expression);
+        parser.register_infix(TokenType::Equal, Parser::parse_infix_expression);
+        parser.register_infix(TokenType::NotEqual, Parser::parse_infix_expression);
+        parser.register_infix(TokenType::LessThan, Parser::parse_infix_expression);
+        parser.register_infix(TokenType::GreaterThan, Parser::parse_infix_expression);
+
         parser
     }
 
-    fn current_precedence(&self) -> Option<Precedence> {
-        let token = self.current_token?;
-        token.try_into().ok()
+    fn peek_precedence(&self) -> Precedence {
+        let Some(token) = self.peek_token.clone() else {
+            return Precedence::Lowest;
+        };
+        token.try_into().unwrap_or_else(|_| Precedence::Lowest)
+    }
+
+    fn current_precedence(&self) -> Precedence {
+        let Some(token) = self.current_token.clone() else {
+            return Precedence::Lowest;
+        };
+        token.try_into().unwrap_or_else(|_| Precedence::Lowest)
     }
 
     fn parse_identifier(&mut self) -> Option<Expression> {
@@ -138,6 +156,23 @@ impl Parser {
         }))
     }
 
+    fn parse_infix_expression(&mut self, left: Expression) -> Option<Expression> {
+        let Some(token) = self.current_token.clone() else {
+            self.errors.push("Expected expression".into());
+            return None;
+        };
+        let precedence = self.current_precedence();
+        let Some(right) = self.parse_expression(precedence) else {
+            self.errors.push("Expected expression".into());
+            return None;
+        };
+        Some(Expression::Infix(Infix {
+            left: Rc::new(left),
+            token,
+            right: Rc::new(right),
+        }))
+    }
+
     fn register_prefix(
         &mut self,
         token_type: TokenType,
@@ -146,8 +181,12 @@ impl Parser {
         self.prefix_parse_functions.insert(token_type, function);
     }
 
-    fn _register_infix(&mut self, token_type: TokenType, function: fn(Expression) -> Expression) {
-        self._infix_parse_functions.insert(token_type, function);
+    fn register_infix(
+        &mut self,
+        token_type: TokenType,
+        function: fn(&mut Parser, Expression) -> Option<Expression>,
+    ) {
+        self.infix_parse_functions.insert(token_type, function);
     }
 
     pub fn errors(&self) -> &Vec<String> {
