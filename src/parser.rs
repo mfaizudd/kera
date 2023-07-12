@@ -11,6 +11,7 @@ use crate::{
     token::{Token, TokenType},
 };
 
+#[derive(PartialEq, PartialOrd)]
 #[allow(dead_code)]
 enum Precedence {
     Lowest,
@@ -151,7 +152,7 @@ impl Parser {
             return None;
         };
         Some(Expression::Prefix(Prefix {
-            token: token.clone(),
+            token,
             right: Rc::new(right),
         }))
     }
@@ -162,6 +163,7 @@ impl Parser {
             return None;
         };
         let precedence = self.current_precedence();
+        self.next_token();
         let Some(right) = self.parse_expression(precedence) else {
             self.errors.push("Expected expression".into());
             return None;
@@ -277,13 +279,26 @@ impl Parser {
         })
     }
 
-    fn parse_expression(&mut self, _precedence: Precedence) -> Option<Expression> {
+    fn parse_expression(&mut self, precedence: Precedence) -> Option<Expression> {
         let token = self.current_token.clone()?;
         let Some(prefix) = self.prefix_parse_functions.get(&token.to_type()) else {
-            self.errors.push(format!("Expected expression, found {:?}", token));
+            self.errors.push(format!("No prefix parse function for {} found", token));
             return None;
         };
-        prefix(self)
+        let left = prefix(self)?;
+        match self.peek_token.as_ref() {
+            Some(Token::Semicolon) => return Some(left),
+            Some(token) if precedence < self.peek_precedence() => {
+                let Some(infix) = self.infix_parse_functions.get(&token.to_type()) else {
+                    self.errors.push(format!("No infix parse function for {} found", token));
+                    return Some(left);
+                };
+                let infix = *infix;
+                self.next_token();
+                return infix(self, left);
+            }
+            _ => return Some(left),
+        }
     }
 
     fn parse_expression_statement(&mut self) -> Option<Expression> {
@@ -544,7 +559,8 @@ mod tests {
             assert_eq!(
                 1,
                 program.statements().len(),
-                "Parsed program: {:?}",
+                "Parsed program ({}): {:?}",
+                case.input,
                 program
             );
 
