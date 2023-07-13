@@ -59,9 +59,9 @@ define_expressions! {
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Statement::Let(s) => write!(f, "misal {} = {};", s.name.value, s.value),
-            Statement::Return(s) => write!(f, "kembalikan {};", s.return_value),
-            Statement::Expression(s) => write!(f, "{};", s),
+            Statement::Let(s) => write!(f, "misal {} = {}", s.name.value, s.value),
+            Statement::Return(s) => write!(f, "kembalikan {}", s.return_value),
+            Statement::Expression(s) => write!(f, "{}", s),
         }
     }
 }
@@ -71,8 +71,8 @@ impl Display for Expression {
         match self {
             Expression::Identifier(e) => write!(f, "{}", e.value),
             Expression::IntegerLiteral(e) => write!(f, "{}", e.value),
-            Expression::Prefix(e) => write!(f, "{}{}", e.token().literal(), e.right),
-            Expression::Infix(e) => write!(f, "{} {} {}", e.left, e.token().literal(), e.right),
+            Expression::Prefix(e) => write!(f, "({}{})", e.token().literal(), e.right),
+            Expression::Infix(e) => write!(f, "({} {} {})", e.left, e.token().literal(), e.right),
         }
     }
 }

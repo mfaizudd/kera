@@ -262,20 +262,23 @@ impl Parser {
             self.errors.push(format!("No prefix parse function for {} found", token));
             return None;
         };
-        let left = prefix(self)?;
-        match self.peek_token.as_ref() {
-            Some(Token::Semicolon) => Some(left),
-            Some(token) if precedence < self.peek_precedence() => {
-                let Some(infix) = self.infix_parse_functions.get(&token.to_type()) else {
-                    self.errors.push(format!("No infix parse function for {} found", token));
-                    return Some(left);
-                };
-                let infix = *infix;
-                self.next_token();
-                infix(self, left)
-            }
-            _ => Some(left),
+        let mut left = prefix(self)?;
+        while self.peek_token.is_some() && precedence < self.peek_precedence() {
+            match self.peek_token.as_ref() {
+                Some(Token::Semicolon) => return Some(left),
+                Some(token) if precedence < self.peek_precedence() => {
+                    let Some(infix) = self.infix_parse_functions.get(&token.to_type()) else {
+                        self.errors.push(format!("No infix parse function for {} found", token));
+                        return Some(left);
+                    };
+                    let infix = *infix;
+                    self.next_token();
+                    left = infix(self, left)?;
+                }
+                _ => return Some(left),
+            };
         }
+        return Some(left);
     }
 
     fn parse_expression_statement(&mut self) -> Option<Expression> {
@@ -560,6 +563,55 @@ mod tests {
                 panic!("Expected an integer literal, found {:?}", infix.right)
             };
             assert_eq!(case.right_value, right.value);
+        }
+    }
+
+    #[test]
+    fn test_operator_precedence_parsing() {
+        struct TestCase<'a> {
+            input: &'a str,
+            expected: &'a str,
+        }
+        let tests = vec![
+            TestCase {
+                input: "-a * b",
+                expected: "((-a) * b)",
+            },
+            TestCase {
+                input: "!-a",
+                expected: "(!(-a))",
+            },
+            TestCase {
+                input: "a + b + c",
+                expected: "((a + b) + c)",
+            },
+            TestCase {
+                input: "a + b - c",
+                expected: "((a + b) - c)",
+            },
+            TestCase {
+                input: "a * b * c",
+                expected: "((a * b) * c)",
+            },
+            TestCase {
+                input: "a * b / c",
+                expected: "((a * b) / c)",
+            },
+            TestCase {
+                input: "a + b / c",
+                expected: "(a + (b / c))",
+            },
+            TestCase {
+                input: "a + b * c + d / e - f",
+                expected: "(((a + (b * c)) + (d / e)) - f)",
+            },
+        ];
+        for test in tests {
+            let lexer = Lexer::new(test.input.into());
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program().expect(test.input);
+            let actual = format!("{}", program);
+            assert_eq!(test.expected, actual);
         }
     }
 }
