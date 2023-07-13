@@ -17,7 +17,7 @@ pub fn start() {
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         match program {
-            Ok(p) => println!("{:?}", p),
+            Ok(p) => println!("{}", p),
             Err(errors) => println!("Parse errors: {:?}", errors),
         }
     }

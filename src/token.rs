@@ -127,4 +127,35 @@ impl Token {
     pub fn to_type(&self) -> TokenType {
         TokenType::from(self.clone())
     }
+
+    pub fn literal(&self) -> String {
+        match self {
+            Token::Illegal => "illegal".into(),
+            Token::Ident(i) => i.into(),
+            Token::Int(i) => i.to_string(),
+            Token::Assign => "=".into(),
+            Token::Plus => "+".into(),
+            Token::Minus => "-".into(),
+            Token::Bang => "!".into(),
+            Token::Asterisk => "*".into(),
+            Token::Slash => "/".into(),
+            Token::LessThan => "<".into(),
+            Token::GreaterThan => ">".into(),
+            Token::Equal => "==".into(),
+            Token::NotEqual => "!=".into(),
+            Token::Comma => ",".into(),
+            Token::Semicolon => ";".into(),
+            Token::LeftParen => "(".into(),
+            Token::RightParen => ")".into(),
+            Token::LeftBrace => "{".into(),
+            Token::RightBrace => "}".into(),
+            Token::Function => "fungsi".into(),
+            Token::Let => "misal".into(),
+            Token::True => "benar".into(),
+            Token::False => "salah".into(),
+            Token::If => "jika".into(),
+            Token::Else => "lainnya".into(),
+            Token::Return => "kembalikan".into(),
+        }
+    }
 }

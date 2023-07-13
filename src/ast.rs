@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{fmt::Display, rc::Rc};
 
 use kera_macros::Node;
 
@@ -44,8 +44,8 @@ macro_rules! define_expressions {
 }
 
 define_statements! {
-    LetStatement
-    ReturnStatement
+    Let
+    Return
     Expression
 }
 
@@ -56,9 +56,40 @@ define_expressions! {
     Infix
 }
 
+impl Display for Statement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Statement::Let(s) => write!(f, "misal {} = {};", s.name.value, s.value),
+            Statement::Return(s) => write!(f, "kembalikan {};", s.return_value),
+            Statement::Expression(s) => write!(f, "{};", s),
+        }
+    }
+}
+
+impl Display for Expression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Expression::Identifier(e) => write!(f, "{}", e.value),
+            Expression::IntegerLiteral(e) => write!(f, "{}", e.value),
+            Expression::Prefix(e) => write!(f, "{}{}", e.token().literal(), e.right),
+            Expression::Infix(e) => write!(f, "{} {} {}", e.left, e.token().literal(), e.right),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Program {
     pub statements: Vec<Statement>,
+}
+
+impl Display for Program {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut result = String::new();
+        for statement in self.statements() {
+            result.push_str(format!("{}", statement).as_str());
+        }
+        write!(f, "{}", result)
+    }
 }
 
 #[allow(dead_code)]
@@ -69,14 +100,14 @@ impl Program {
 }
 
 #[derive(Debug, Node)]
-pub struct LetStatement {
+pub struct Let {
     pub token: Token,
     pub name: Identifier,
     pub value: Expression,
 }
 
 #[derive(Debug, Node)]
-pub struct ReturnStatement {
+pub struct Return {
     pub token: Token,
     pub return_value: Expression,
 }
