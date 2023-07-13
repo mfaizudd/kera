@@ -8,7 +8,15 @@ Using cargo
 ```shell
 cargo run
 ```
-Currently, it can only print the tokens produced by user's input
+It can now display correct expression precedence.
+
+TODO:
+- [x] Lexer
+- [ ] Parser
+    - [x] Statements
+    - [ ] Expressions
+- [ ] Evaluation
+- [ ] REPL
 
 ## Example
 
