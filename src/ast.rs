@@ -54,7 +54,7 @@ define_expressions! {
     IntegerLiteral
     Prefix
     Infix
-    Boolean
+    BooleanLiteral
 }
 
 impl Display for Statement {
@@ -74,7 +74,9 @@ impl Display for Expression {
             Expression::IntegerLiteral(e) => write!(f, "{}", e.value),
             Expression::Prefix(e) => write!(f, "({}{})", e.token().literal(), e.right),
             Expression::Infix(e) => write!(f, "({} {} {})", e.left, e.token().literal(), e.right),
-            Expression::Boolean(e) => write!(f, "{}", if e.value { "benar" } else { "salah" }),
+            Expression::BooleanLiteral(e) => {
+                write!(f, "{}", if e.value { "benar" } else { "salah" })
+            }
         }
     }
 }
@@ -140,7 +142,7 @@ pub struct Infix {
 }
 
 #[derive(Debug, Node)]
-pub struct Boolean {
+pub struct BooleanLiteral {
     pub token: Token,
     pub value: bool,
 }

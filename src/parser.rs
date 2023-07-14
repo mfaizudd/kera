@@ -4,8 +4,8 @@ use anyhow::anyhow;
 
 use crate::{
     ast::{
-        Boolean, Expression, Identifier, Infix, IntegerLiteral, Let, Prefix, Program, Return,
-        Statement,
+        BooleanLiteral, Expression, Identifier, Infix, IntegerLiteral, Let, Prefix, Program,
+        Return, Statement,
     },
     lexer::Lexer,
     token::{Token, TokenType},
@@ -147,16 +147,19 @@ impl Parser {
     }
 
     fn parse_boolean_literal(&mut self) -> Option<Expression> {
-        match self.current_token.as_ref() {
-            Some(Token::True) => Some(Expression::Boolean(Boolean {
-                token: Token::True,
-                value: true,
+        let Some(token) = self.current_token.as_ref() else {
+            self.errors.push("Expected boolean".into());
+            return None
+        };
+        match token {
+            Token::True | Token::False => Some(Expression::BooleanLiteral(BooleanLiteral {
+                token: token.clone(),
+                value: matches!(token, Token::True),
             })),
-            Some(Token::False) => Some(Expression::Boolean(Boolean {
-                token: Token::False,
-                value: false,
-            })),
-            _ => None,
+            _ => {
+                self.errors.push("Expected boolean".into());
+                None
+            }
         }
     }
 
@@ -331,7 +334,7 @@ mod tests {
     use core::panic;
 
     use crate::{
-        ast::{Expression, Node, Statement},
+        ast::{BooleanLiteral, Expression, IntegerLiteral, Node, Statement},
         lexer::Lexer,
         token::Token,
     };
@@ -496,58 +499,76 @@ mod tests {
     fn test_parsing_infix_expressions() {
         struct TestCase<'a> {
             input: &'a str,
-            left_value: i64,
+            left_value: Token,
             operator: Token,
-            right_value: i64,
+            right_value: Token,
         }
         let tests = vec![
             TestCase {
+                input: "benar == benar",
+                left_value: Token::True,
+                operator: Token::Equal,
+                right_value: Token::True,
+            },
+            TestCase {
+                input: "benar != salah",
+                left_value: Token::True,
+                operator: Token::NotEqual,
+                right_value: Token::False,
+            },
+            TestCase {
+                input: "salah == salah",
+                left_value: Token::False,
+                operator: Token::Equal,
+                right_value: Token::False,
+            },
+            TestCase {
                 input: "5 + 5;",
-                left_value: 5,
+                left_value: Token::Int(5),
                 operator: Token::Plus,
-                right_value: 5,
+                right_value: Token::Int(5),
             },
             TestCase {
                 input: "5 - 5;",
-                left_value: 5,
+                left_value: Token::Int(5),
                 operator: Token::Minus,
-                right_value: 5,
+                right_value: Token::Int(5),
             },
             TestCase {
                 input: "5 * 5;",
-                left_value: 5,
+                left_value: Token::Int(5),
                 operator: Token::Asterisk,
-                right_value: 5,
+                right_value: Token::Int(5),
             },
             TestCase {
                 input: "5 / 5;",
-                left_value: 5,
+                left_value: Token::Int(5),
                 operator: Token::Slash,
-                right_value: 5,
+                right_value: Token::Int(5),
             },
             TestCase {
                 input: "5 > 5;",
-                left_value: 5,
+                left_value: Token::Int(5),
                 operator: Token::GreaterThan,
-                right_value: 5,
+                right_value: Token::Int(5),
             },
             TestCase {
                 input: "5 < 5;",
-                left_value: 5,
+                left_value: Token::Int(5),
                 operator: Token::LessThan,
-                right_value: 5,
+                right_value: Token::Int(5),
             },
             TestCase {
                 input: "5 == 5;",
-                left_value: 5,
+                left_value: Token::Int(5),
                 operator: Token::Equal,
-                right_value: 5,
+                right_value: Token::Int(5),
             },
             TestCase {
                 input: "5 != 5;",
-                left_value: 5,
+                left_value: Token::Int(5),
                 operator: Token::NotEqual,
-                right_value: 5,
+                right_value: Token::Int(5),
             },
         ];
 
@@ -573,15 +594,43 @@ mod tests {
             };
             assert_eq!(&case.operator, infix.token());
 
-            let Expression::IntegerLiteral(left) = &*infix.left else {
-                panic!("Expected an integer literal, found {:?}", infix.right)
-            };
-            assert_eq!(case.left_value, left.value);
+            test_literal_expression(case.left_value, &*infix.left);
+            test_literal_expression(case.right_value, &*infix.right);
+        }
+    }
 
-            let Expression::IntegerLiteral(right) = &*infix.right else {
-                panic!("Expected an integer literal, found {:?}", infix.right)
-            };
-            assert_eq!(case.right_value, right.value);
+    fn test_integer_literal(expected: i64, actual: &IntegerLiteral) {
+        assert_eq!(
+            expected, actual.value,
+            "Expected {}, got {}",
+            expected, actual.value
+        )
+    }
+
+    fn test_boolean_literal(expected: bool, actual: &BooleanLiteral) {
+        assert_eq!(
+            expected, actual.value,
+            "Expected {}, got {}",
+            expected, actual.value
+        )
+    }
+
+    fn test_literal_expression(expected: Token, actual: &Expression) {
+        match expected {
+            Token::Int(expected) => {
+                let Expression::IntegerLiteral(actual) = actual else {
+                    panic!("Expected an integer literal, found {}", actual)
+                };
+                test_integer_literal(expected, actual)
+            }
+            Token::True | Token::False => {
+                let Expression::BooleanLiteral(actual) = actual else {
+                    panic!("Expected a boolean literal, found {}", actual)
+                };
+                let expected = matches!(expected, Token::True);
+                test_boolean_literal(expected, actual)
+            }
+            _ => panic!("Expected a literal expression, found {}", actual),
         }
     }
 
@@ -592,6 +641,22 @@ mod tests {
             expected: &'a str,
         }
         let tests = vec![
+            TestCase {
+                input: "benar",
+                expected: "benar",
+            },
+            TestCase {
+                input: "salah",
+                expected: "salah",
+            },
+            TestCase {
+                input: "3 > 5 == salah",
+                expected: "((3 > 5) == salah)",
+            },
+            TestCase {
+                input: "3 < 5 == benar",
+                expected: "((3 < 5) == benar)",
+            },
             TestCase {
                 input: "-a * b",
                 expected: "((-a) * b)",
