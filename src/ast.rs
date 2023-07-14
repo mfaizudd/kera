@@ -1,5 +1,6 @@
 use std::{fmt::Display, rc::Rc};
 
+use derive_more::Display;
 use kera_macros::Node;
 
 use crate::token::Token;
@@ -10,7 +11,8 @@ pub trait Node {
 
 macro_rules! define_statements {
     ($($name:ident)*) => {
-        #[derive(Debug)]
+        #[derive(Debug, Display)]
+        #[allow(dead_code)]
         pub enum Statement {
             $($name($name),)*
         }
@@ -27,7 +29,7 @@ macro_rules! define_statements {
 
 macro_rules! define_expressions {
     ($($name:ident)*) => {
-        #[derive(Debug)]
+        #[derive(Debug, Display)]
         #[allow(dead_code)]
         pub enum Expression {
             $($name($name),)*
@@ -47,6 +49,7 @@ define_statements! {
     Let
     Return
     Expression
+    Block
 }
 
 define_expressions! {
@@ -55,30 +58,7 @@ define_expressions! {
     Prefix
     Infix
     BooleanLiteral
-}
-
-impl Display for Statement {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Statement::Let(s) => write!(f, "misal {} = {}", s.name.value, s.value),
-            Statement::Return(s) => write!(f, "kembalikan {}", s.return_value),
-            Statement::Expression(s) => write!(f, "{}", s),
-        }
-    }
-}
-
-impl Display for Expression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Expression::Identifier(e) => write!(f, "{}", e.value),
-            Expression::IntegerLiteral(e) => write!(f, "{}", e.value),
-            Expression::Prefix(e) => write!(f, "({}{})", e.token().literal(), e.right),
-            Expression::Infix(e) => write!(f, "({} {} {})", e.left, e.token().literal(), e.right),
-            Expression::BooleanLiteral(e) => {
-                write!(f, "{}", if e.value { "benar" } else { "salah" })
-            }
-        }
-    }
+    If
 }
 
 #[derive(Debug)]
@@ -103,46 +83,87 @@ impl Program {
     }
 }
 
-#[derive(Debug, Node)]
+#[derive(Debug, Node, Display)]
+#[display(fmt = "misal {} = {}", "name.value", "value")]
 pub struct Let {
     pub token: Token,
     pub name: Identifier,
     pub value: Expression,
 }
 
-#[derive(Debug, Node)]
+#[derive(Debug, Node, Display)]
+#[display(fmt = "kembalikan {}", return_value)]
 pub struct Return {
     pub token: Token,
     pub return_value: Expression,
 }
 
-#[derive(Debug, Clone, Node)]
+#[derive(Debug, Clone, Node, Display)]
+#[display(fmt = "{}", value)]
 pub struct Identifier {
     pub token: Token,
     pub value: String,
 }
 
-#[derive(Debug, Node)]
+#[derive(Debug, Node, Display)]
+#[display(fmt = "{}", value)]
 pub struct IntegerLiteral {
     pub token: Token,
     pub value: i64,
 }
 
-#[derive(Debug, Node)]
+#[derive(Debug, Node, Display)]
+#[display(fmt = "({}{})", "token.literal()", "right")]
 pub struct Prefix {
     pub token: Token,
     pub right: Rc<Expression>,
 }
 
-#[derive(Debug, Node)]
+#[derive(Debug, Node, Display)]
+#[display(fmt = "({} {} {})", left, "token.literal()", right)]
 pub struct Infix {
     pub token: Token,
     pub left: Rc<Expression>,
     pub right: Rc<Expression>,
 }
 
-#[derive(Debug, Node)]
+#[derive(Debug, Node, Display)]
+#[display(fmt = "{}", "token.literal()")]
 pub struct BooleanLiteral {
     pub token: Token,
     pub value: bool,
+}
+
+#[derive(Debug, Node)]
+pub struct If {
+    pub token: Token,
+    pub condition: Rc<Expression>,
+    pub consequence: Block,
+    pub alternative: Option<Block>,
+}
+
+impl Display for If {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut result = format!("jika {} {} ", self.condition, self.consequence);
+        if let Some(alternative) = &self.alternative {
+            result.push_str(&format!("{}", alternative));
+        }
+        write!(f, "{}", result)
+    }
+}
+
+#[derive(Debug, Node)]
+pub struct Block {
+    pub token: Token,
+    pub statements: Vec<Statement>,
+}
+
+impl Display for Block {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut result = String::new();
+        for statement in self.statements.iter() {
+            result.push_str(&format!("else {}", statement))
+        }
+        write!(f, "{}", result)
+    }
 }
