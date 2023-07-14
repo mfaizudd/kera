@@ -3,7 +3,10 @@ use std::{collections::HashMap, rc::Rc};
 use anyhow::anyhow;
 
 use crate::{
-    ast::{Expression, Identifier, Infix, IntegerLiteral, Let, Prefix, Program, Return, Statement},
+    ast::{
+        Boolean, Expression, Identifier, Infix, IntegerLiteral, Let, Prefix, Program, Return,
+        Statement,
+    },
     lexer::Lexer,
     token::{Token, TokenType},
 };
@@ -94,6 +97,8 @@ impl Parser {
 
         parser.register_prefix(TokenType::Ident, Parser::parse_identifier);
         parser.register_prefix(TokenType::Int, Parser::parse_integer_literal);
+        parser.register_prefix(TokenType::True, Parser::parse_boolean_literal);
+        parser.register_prefix(TokenType::False, Parser::parse_boolean_literal);
         parser.register_prefix(TokenType::Bang, Parser::parse_prefix_expression);
         parser.register_prefix(TokenType::Minus, Parser::parse_prefix_expression);
 
@@ -139,6 +144,20 @@ impl Parser {
             token: Token::Int(*literal),
             value: *literal,
         }))
+    }
+
+    fn parse_boolean_literal(&mut self) -> Option<Expression> {
+        match self.current_token.as_ref() {
+            Some(Token::True) => Some(Expression::Boolean(Boolean {
+                token: Token::True,
+                value: true,
+            })),
+            Some(Token::False) => Some(Expression::Boolean(Boolean {
+                token: Token::False,
+                value: false,
+            })),
+            _ => None,
+        }
     }
 
     fn parse_prefix_expression(&mut self) -> Option<Expression> {
