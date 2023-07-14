@@ -334,7 +334,7 @@ mod tests {
     use core::panic;
 
     use crate::{
-        ast::{BooleanLiteral, Expression, IntegerLiteral, Node, Statement},
+        ast::{Expression, Node, Statement},
         lexer::Lexer,
         token::Token,
     };
@@ -590,7 +590,7 @@ mod tests {
             };
 
             let Expression::Infix(infix) = expression else {
-                panic!("Expected a prefix, found {:?}", statement)
+                panic!("Expected a infix, found {:?}", statement)
             };
             assert_eq!(&case.operator, infix.token());
 
@@ -599,20 +599,14 @@ mod tests {
         }
     }
 
-    fn test_integer_literal(expected: i64, actual: &IntegerLiteral) {
-        assert_eq!(
-            expected, actual.value,
-            "Expected {}, got {}",
-            expected, actual.value
-        )
-    }
-
-    fn test_boolean_literal(expected: bool, actual: &BooleanLiteral) {
-        assert_eq!(
-            expected, actual.value,
-            "Expected {}, got {}",
-            expected, actual.value
-        )
+    macro_rules! assert_literal {
+        ($expected:expr, $actual:expr) => {
+            assert_eq!(
+                $expected, $actual.value,
+                "Expected {}, got {}",
+                $expected, $actual.value
+            )
+        };
     }
 
     fn test_literal_expression(expected: Token, actual: &Expression) {
@@ -621,14 +615,14 @@ mod tests {
                 let Expression::IntegerLiteral(actual) = actual else {
                     panic!("Expected an integer literal, found {}", actual)
                 };
-                test_integer_literal(expected, actual)
+                assert_literal!(expected, actual)
             }
             Token::True | Token::False => {
                 let Expression::BooleanLiteral(actual) = actual else {
                     panic!("Expected a boolean literal, found {}", actual)
                 };
                 let expected = matches!(expected, Token::True);
-                test_boolean_literal(expected, actual)
+                assert_literal!(expected, actual)
             }
             _ => panic!("Expected a literal expression, found {}", actual),
         }
