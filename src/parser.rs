@@ -101,6 +101,7 @@ impl Parser {
         parser.register_prefix(TokenType::False, Parser::parse_boolean_literal);
         parser.register_prefix(TokenType::Bang, Parser::parse_prefix_expression);
         parser.register_prefix(TokenType::Minus, Parser::parse_prefix_expression);
+        parser.register_prefix(TokenType::LeftParen, Parser::parse_grouped_expression);
 
         parser.register_infix(TokenType::Plus, Parser::parse_infix_expression);
         parser.register_infix(TokenType::Minus, Parser::parse_infix_expression);
@@ -126,6 +127,16 @@ impl Parser {
             return Precedence::Lowest;
         };
         token.try_into().unwrap_or(Precedence::Lowest)
+    }
+
+    fn parse_grouped_expression(&mut self) -> Option<Expression> {
+        self.next_token();
+        let expression = self.parse_expression(Precedence::Lowest);
+        let Some(Token::RightParen) = self.peek_token.as_ref() else {
+            return None;
+        };
+        self.next_token();
+        expression
     }
 
     fn parse_identifier(&mut self) -> Option<Expression> {
@@ -635,6 +646,18 @@ mod tests {
             expected: &'a str,
         }
         let tests = vec![
+            TestCase {
+                input: "1 + (2 + 3) + 4",
+                expected: "((1 + (2 + 3)) + 4)",
+            },
+            TestCase {
+                input: "(5 + 5) * 2",
+                expected: "((5 + 5) * 2)",
+            },
+            TestCase {
+                input: "2 / (5 + 5)",
+                expected: "(2 / (5 + 5))",
+            },
             TestCase {
                 input: "benar",
                 expected: "benar",
