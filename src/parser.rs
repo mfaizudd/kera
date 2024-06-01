@@ -56,13 +56,15 @@ pub struct Parser {
 macro_rules! expect_current {
     ($self:ident, $result:pat_param, $type:expr) => {
         let Some(token) = $self.current_token.as_ref() else {
-                            $self.errors.push(format!("Expected {}", $type));
-                            return None
-                        };
+            $self.errors.push(format!("Expected {}", $type));
+            return None;
+        };
         let $result = token else {
-                            $self.errors.push(format!("Expected {}, got {:?}", $type, token));
-                            return None
-                        };
+            $self
+                .errors
+                .push(format!("Expected {}, got {:?}", $type, token));
+            return None;
+        };
     };
 }
 
@@ -72,13 +74,15 @@ macro_rules! expect_peek {
     };
     ($self:ident, $result:pat_param, $type:expr) => {
         let Some(token) = $self.peek_token.as_ref() else {
-                            $self.errors.push(format!("Expected {}", $type));
-                            return None;
-                        };
+            $self.errors.push(format!("Expected {}", $type));
+            return None;
+        };
         let $result = token else {
-                            $self.errors.push(format!("Expected {}, got {:?}", $type, token));
-                            return None
-                        };
+            $self
+                .errors
+                .push(format!("Expected {}, got {:?}", $type, token));
+            return None;
+        };
     };
 }
 
@@ -160,7 +164,7 @@ impl Parser {
     fn parse_boolean_literal(&mut self) -> Option<Expression> {
         let Some(token) = self.current_token.as_ref() else {
             self.errors.push("Expected boolean".into());
-            return None
+            return None;
         };
         match token {
             Token::True | Token::False => Some(Expression::BooleanLiteral(BooleanLiteral {
@@ -292,7 +296,8 @@ impl Parser {
     fn parse_expression(&mut self, precedence: Precedence) -> Option<Expression> {
         let token = self.current_token.clone()?;
         let Some(prefix) = self.prefix_parse_functions.get(&token.to_type()) else {
-            self.errors.push(format!("No prefix parse function for {} found", token));
+            self.errors
+                .push(format!("No prefix parse function for {} found", token));
             return None;
         };
         let mut left = prefix(self)?;
@@ -301,7 +306,8 @@ impl Parser {
                 Some(Token::Semicolon) => return Some(left),
                 Some(token) if precedence < self.peek_precedence() => {
                     let Some(infix) = self.infix_parse_functions.get(&token.to_type()) else {
-                        self.errors.push(format!("No infix parse function for {} found", token));
+                        self.errors
+                            .push(format!("No infix parse function for {} found", token));
                         return Some(left);
                     };
                     let infix = *infix;
@@ -714,5 +720,47 @@ mod tests {
             let actual = format!("{}", program);
             assert_eq!(test.expected, actual);
         }
+    }
+
+    #[test]
+    fn test_if_expression() {
+        let input = "jika x < y { x }";
+        let lexer = Lexer::new(input.into());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program().unwrap();
+        assert_eq!(
+            1,
+            program.statements().len(),
+            "Parsed program: {:?}",
+            program
+        );
+        let statement = program.statements().get(0).unwrap();
+        let Statement::Expression(expression) = statement else {
+            panic!("Expected an expression statement, found: {:?}", statement)
+        };
+        let Expression::If(if_expression) = expression else {
+            panic!("Expected an if expression, found: {:?}", expression)
+        };
+        let Expression::Infix(condition) = &*if_expression.condition else {
+            panic!(
+                "Expected condition to be an infix expression, found: {:?}",
+                if_expression.condition
+            )
+        };
+        assert_eq!(Token::LessThan, condition.token);
+        test_literal_expression(Token::Ident("x".into()), &condition.left);
+        test_literal_expression(Token::Ident("y".into()), &condition.right);
+        assert_eq!(
+            1,
+            if_expression.consequence.statements.len(),
+            "Consequence is not 1 statement. got: {:?}",
+            if_expression.consequence.statements
+        );
+        let statement = if_expression.consequence.statements.get(0).unwrap();
+        let Statement::Expression(Expression::Identifier(consequence)) = statement else {
+            panic!("Expected an identifier, found: {:?}", statement)
+        };
+        assert_eq!("x", consequence.value);
+        assert!(if_expression.alternative.is_none());
     }
 }

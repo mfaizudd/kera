@@ -146,7 +146,7 @@ impl Display for If {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut result = format!("jika {} {} ", self.condition, self.consequence);
         if let Some(alternative) = &self.alternative {
-            result.push_str(&format!("{}", alternative));
+            result.push_str(&format!("else {}", alternative));
         }
         write!(f, "{}", result)
     }
@@ -162,7 +162,7 @@ impl Display for Block {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut result = String::new();
         for statement in self.statements.iter() {
-            result.push_str(&format!("else {}", statement))
+            result.push_str(&format!("{}", statement))
         }
         write!(f, "{}", result)
     }
