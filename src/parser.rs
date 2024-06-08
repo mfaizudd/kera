@@ -4,8 +4,8 @@ use anyhow::anyhow;
 
 use crate::{
     ast::{
-        BooleanLiteral, Expression, Identifier, Infix, IntegerLiteral, Let, Prefix, Program,
-        Return, Statement,
+        Block, BooleanLiteral, Expression, Identifier, If, Infix, IntegerLiteral, Let, Prefix,
+        Program, Return, Statement,
     },
     lexer::Lexer,
     token::{Token, TokenType},
@@ -106,6 +106,7 @@ impl Parser {
         parser.register_prefix(TokenType::Bang, Parser::parse_prefix_expression);
         parser.register_prefix(TokenType::Minus, Parser::parse_prefix_expression);
         parser.register_prefix(TokenType::LeftParen, Parser::parse_grouped_expression);
+        parser.register_prefix(TokenType::If, Parser::parse_if_expression);
 
         parser.register_infix(TokenType::Plus, Parser::parse_infix_expression);
         parser.register_infix(TokenType::Minus, Parser::parse_infix_expression);
@@ -141,6 +142,50 @@ impl Parser {
         };
         self.next_token();
         expression
+    }
+
+    fn parse_if_expression(&mut self) -> Option<Expression> {
+        expect_current!(self, Token::If, "if");
+        self.next_token();
+        let condition = Rc::new(self.parse_expression(Precedence::Lowest)?);
+        self.next_token();
+        println!("next token: {:?}", self.current_token);
+        let consequence = self.parse_block_statement()?;
+        self.next_token();
+        println!("and next token again: {:?}", self.current_token);
+        let alternative = if let Some(Token::Else) = self.current_token {
+            self.next_token();
+            self.parse_block_statement()
+        } else {
+            None
+        };
+        Some(Expression::If(If {
+            token: Token::If,
+            condition,
+            consequence,
+            alternative,
+        }))
+    }
+
+    fn parse_block_statement(&mut self) -> Option<Block> {
+        expect_current!(self, Token::LeftBrace, "{");
+        self.next_token();
+        let mut statements = Vec::new();
+        while self
+            .current_token
+            .as_ref()
+            .is_some_and(|t| !matches!(t, Token::RightBrace))
+        {
+            let statement = self.parse_statement();
+            if let Some(statement) = statement {
+                statements.push(statement);
+            }
+            self.next_token()
+        }
+        Some(Block {
+            token: Token::LeftBrace,
+            statements,
+        })
     }
 
     fn parse_identifier(&mut self) -> Option<Expression> {
@@ -641,6 +686,12 @@ mod tests {
                 let expected = matches!(expected, Token::True);
                 assert_literal!(expected, actual)
             }
+            Token::Ident(expected) => {
+                let Expression::Identifier(actual) = actual else {
+                    panic!("Expected a identifier, found {}", actual)
+                };
+                assert_literal!(expected, actual)
+            }
             _ => panic!("Expected a literal expression, found {}", actual),
         }
     }
@@ -766,7 +817,7 @@ mod tests {
 
     #[test]
     fn test_if_else_expression() {
-        let input = "jika x < y { x } else { y }";
+        let input = "jika x < y { x } lainnya { y }";
         let lexer = Lexer::new(input.into());
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program().unwrap();
@@ -810,7 +861,13 @@ mod tests {
             "Consequence is not 1 statement. got: {:?}",
             if_expression.alternative.as_ref().unwrap().statements.len()
         );
-        let statement = if_expression.alternative.as_ref().unwrap().statements.get(0).unwrap();
+        let statement = if_expression
+            .alternative
+            .as_ref()
+            .unwrap()
+            .statements
+            .get(0)
+            .unwrap();
         let Statement::Expression(Expression::Identifier(alternative)) = statement else {
             panic!("Expected an identifier, found: {:?}", statement)
         };
