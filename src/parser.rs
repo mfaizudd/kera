@@ -754,7 +754,7 @@ mod tests {
             1,
             if_expression.consequence.statements.len(),
             "Consequence is not 1 statement. got: {:?}",
-            if_expression.consequence.statements
+            if_expression.consequence.statements.len()
         );
         let statement = if_expression.consequence.statements.get(0).unwrap();
         let Statement::Expression(Expression::Identifier(consequence)) = statement else {
@@ -762,5 +762,58 @@ mod tests {
         };
         assert_eq!("x", consequence.value);
         assert!(if_expression.alternative.is_none());
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = "jika x < y { x } else { y }";
+        let lexer = Lexer::new(input.into());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program().unwrap();
+        assert_eq!(
+            1,
+            program.statements().len(),
+            "Parsed program: {:?}",
+            program
+        );
+        let statement = program.statements().get(0).unwrap();
+        let Statement::Expression(expression) = statement else {
+            panic!("Expected an expression statement, found: {:?}", statement)
+        };
+        let Expression::If(if_expression) = expression else {
+            panic!("Expected an if expression, found: {:?}", expression)
+        };
+        let Expression::Infix(condition) = &*if_expression.condition else {
+            panic!(
+                "Expected condition to be an infix expression, found: {:?}",
+                if_expression.condition
+            )
+        };
+        assert_eq!(Token::LessThan, condition.token);
+        test_literal_expression(Token::Ident("x".into()), &condition.left);
+        test_literal_expression(Token::Ident("y".into()), &condition.right);
+        assert_eq!(
+            1,
+            if_expression.consequence.statements.len(),
+            "Consequence is not 1 statement. got: {:?}",
+            if_expression.consequence.statements.len()
+        );
+        let statement = if_expression.consequence.statements.get(0).unwrap();
+        let Statement::Expression(Expression::Identifier(consequence)) = statement else {
+            panic!("Expected an identifier, found: {:?}", statement)
+        };
+        assert_eq!("x", consequence.value);
+        assert!(if_expression.alternative.is_some());
+        assert_eq!(
+            1,
+            if_expression.alternative.as_ref().unwrap().statements.len(),
+            "Consequence is not 1 statement. got: {:?}",
+            if_expression.alternative.as_ref().unwrap().statements.len()
+        );
+        let statement = if_expression.alternative.as_ref().unwrap().statements.get(0).unwrap();
+        let Statement::Expression(Expression::Identifier(alternative)) = statement else {
+            panic!("Expected an identifier, found: {:?}", statement)
+        };
+        assert_eq!("y", alternative.value);
     }
 }
