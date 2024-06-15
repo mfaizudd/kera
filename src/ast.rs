@@ -59,6 +59,7 @@ define_expressions! {
     Infix
     BooleanLiteral
     If
+    FunctionLiteral
 }
 
 #[derive(Debug)]
@@ -164,6 +165,25 @@ impl Display for Block {
         for statement in self.statements.iter() {
             result.push_str(&format!("{}", statement))
         }
-        write!(f, "{}", result)
+        write!(f, "{{ {} }}", result)
+    }
+}
+
+#[derive(Debug, Node)]
+pub struct FunctionLiteral {
+    pub token: Token,
+    pub parameters: Vec<Identifier>,
+    pub body: Block,
+}
+
+impl Display for FunctionLiteral {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let parameters = self
+            .parameters
+            .iter()
+            .map(|p| p.value.as_ref())
+            .collect::<Vec<&str>>()
+            .join(", ");
+        write!(f, "{}({}) {}", self.token(), parameters, self.body)
     }
 }

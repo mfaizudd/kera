@@ -182,6 +182,7 @@ impl Parser {
             }
             self.next_token()
         }
+        expect_current!(self, Token::RightBrace, "}");
         Some(Block {
             token: Token::LeftBrace,
             statements,
@@ -872,5 +873,41 @@ mod tests {
             panic!("Expected an identifier, found: {:?}", statement)
         };
         assert_eq!("y", alternative.value);
+    }
+
+    #[test]
+    fn test_function_literal_parsing() {
+        let input = "fungsi(x, y) { x + y; }";
+        let lexer = Lexer::new(input.into());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program().unwrap();
+        assert_eq!(
+            1,
+            program.statements().len(),
+            "Parsed program: {:?}",
+            program
+        );
+        let statement = program.statements().get(0).unwrap();
+        let Statement::Expression(expression) = statement else {
+            panic!("Expected an expression statement, found: {:?}", statement)
+        };
+        let Expression::FunctionLiteral(function) = expression else {
+            panic!("Expected a function literal, found: {:?}", expression)
+        };
+        assert_eq!(function.parameters[0].value, "x");
+        assert_eq!(function.parameters[1].value, "y");
+        assert_eq!(function.body.statements.len(), 1);
+        let Statement::Expression(body) = &function.body.statements[0] else {
+            panic!(
+                "Function body statement is not expression statement, found: {:?}",
+                &function.body.statements[0]
+            )
+        };
+        let Expression::Infix(infix) = body else {
+            panic!("Expression is not an infix expression")
+        };
+        assert_eq!(infix.left.token(), &Token::Ident("x".into()));
+        assert_eq!(infix.token(), &Token::Plus);
+        assert_eq!(infix.right.token(), &Token::Ident("y".into()));
     }
 }
