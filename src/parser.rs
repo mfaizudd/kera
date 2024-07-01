@@ -514,11 +514,16 @@ mod tests {
         );
 
         let expecteds = vec!["x", "y", "foobar"];
+        let expressions = vec!["5", "10", "838383"];
         for (i, expected) in expecteds.iter().enumerate() {
             let statement = program.statements().get(i);
             let statement =
                 statement.expect(&format!("Expected a statement, got a {:?}", statement));
-            test_let_statement(statement, &expected)
+            test_let_statement(statement, &expected);
+            let Statement::Let(let_statement) = statement else {
+                panic!("Expected a let statement");
+            };
+            assert_eq!(let_statement.value.to_string(), expressions[i]);
         }
     }
 
@@ -556,10 +561,12 @@ mod tests {
             program.statements().len()
         );
 
-        for statement in program.statements() {
-            let Statement::Return(_) = statement else {
+        let expressions = vec!["5", "10", "112233"];
+        for (i, statement) in program.statements().iter().enumerate() {
+            let Statement::Return(ret) = statement else {
                 panic!("Statement is not return statement, got '{:?}'", statement)
             };
+            assert_eq!(ret.return_value.to_string(), expressions[i]);
         }
     }
 
