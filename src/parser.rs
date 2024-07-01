@@ -152,10 +152,8 @@ impl Parser {
         self.next_token();
         let condition = Rc::new(self.parse_expression(Precedence::Lowest)?);
         self.next_token();
-        println!("next token: {:?}", self.current_token);
         let consequence = self.parse_block_statement()?;
         self.next_token();
-        println!("and next token again: {:?}", self.current_token);
         let alternative = if let Some(Token::Else) = self.current_token {
             self.next_token();
             self.parse_block_statement()
