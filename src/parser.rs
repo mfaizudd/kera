@@ -4,8 +4,8 @@ use anyhow::anyhow;
 
 use crate::{
     ast::{
-        Block, BooleanLiteral, Expression, Identifier, If, Infix, IntegerLiteral, Let, Prefix,
-        Program, Return, Statement,
+        Block, BooleanLiteral, Expression, FunctionLiteral, Identifier, If, Infix, IntegerLiteral,
+        Let, Prefix, Program, Return, Statement,
     },
     lexer::Lexer,
     token::{Token, TokenType},
@@ -107,6 +107,7 @@ impl Parser {
         parser.register_prefix(TokenType::Minus, Parser::parse_prefix_expression);
         parser.register_prefix(TokenType::LeftParen, Parser::parse_grouped_expression);
         parser.register_prefix(TokenType::If, Parser::parse_if_expression);
+        parser.register_prefix(TokenType::Function, Parser::parse_function_literal);
 
         parser.register_infix(TokenType::Plus, Parser::parse_infix_expression);
         parser.register_infix(TokenType::Minus, Parser::parse_infix_expression);
@@ -165,6 +166,57 @@ impl Parser {
             consequence,
             alternative,
         }))
+    }
+
+    fn parse_function_literal(&mut self) -> Option<Expression> {
+        expect_current!(self, Token::Function, "fungsi");
+        expect_peek!(self, Token::LeftParen, "(");
+        self.next_token();
+        let parameters = self.parse_function_parameters()?;
+        self.next_token();
+        let body = self.parse_block_statement()?;
+        let function = FunctionLiteral {
+            token: Token::Function,
+            parameters,
+            body,
+        };
+        Some(Expression::FunctionLiteral(function))
+    }
+
+    fn parse_function_parameters(&mut self) -> Option<Vec<Identifier>> {
+        expect_current!(self, Token::LeftParen, "(");
+        let mut parameters = Vec::new();
+        if let Some(Token::RightParen) = self.peek_token {
+            self.next_token();
+            return Some(parameters);
+        }
+
+        self.next_token();
+        let Some(Token::Ident(ident)) = self.current_token.as_ref() else {
+            self.errors.push("Expected identifier".into());
+            return None;
+        };
+        parameters.push(Identifier {
+            token: Token::Ident(ident.into()),
+            value: ident.into(),
+        });
+
+        while let Some(Token::Comma) = self.peek_token {
+            self.next_token();
+            self.next_token();
+            let Some(Token::Ident(ident)) = self.current_token.as_ref() else {
+                self.errors.push("Expected identifier".into());
+                return None;
+            };
+            parameters.push(Identifier {
+                token: Token::Ident(ident.into()),
+                value: ident.into(),
+            });
+        }
+
+        expect_peek!(self, Token::RightParen, ")");
+        self.next_token();
+        Some(parameters)
     }
 
     fn parse_block_statement(&mut self) -> Option<Block> {
@@ -909,5 +961,50 @@ mod tests {
         assert_eq!(infix.left.token(), &Token::Ident("x".into()));
         assert_eq!(infix.token(), &Token::Plus);
         assert_eq!(infix.right.token(), &Token::Ident("y".into()));
+    }
+
+    #[test]
+    fn test_function_paramter_parsing() {
+        struct TestCase<'a> {
+            input: &'a str,
+            expected: Vec<&'a str>,
+        }
+        let tests = vec![
+            TestCase {
+                input: "fungsi() {};",
+                expected: vec![],
+            },
+            TestCase {
+                input: "fungsi(x) {};",
+                expected: vec!["x"],
+            },
+            TestCase {
+                input: "fungsi(x,y,z) {};",
+                expected: vec!["x", "y", "z"],
+            },
+        ];
+
+        for test in tests {
+            let lexer = Lexer::new(test.input.into());
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program().unwrap();
+            assert_eq!(
+                1,
+                program.statements().len(),
+                "Parsed program: {:?}",
+                program
+            );
+            let statement = program.statements().get(0).unwrap();
+            let Statement::Expression(expression) = statement else {
+                panic!("Expected an expression statement, found: {:?}", statement)
+            };
+            let Expression::FunctionLiteral(function) = expression else {
+                panic!("Expected a function literal, found: {:?}", expression)
+            };
+            assert_eq!(function.parameters.len(), test.expected.len());
+            for (i, parameter) in function.parameters.iter().enumerate() {
+                assert_eq!(parameter.value, test.expected[i]);
+            }
+        }
     }
 }
