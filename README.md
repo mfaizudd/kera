@@ -12,9 +12,9 @@ It can now display correct expression precedence.
 
 TODO:
 - [x] Lexer
-- [ ] Parser
+- [x] Parser
     - [x] Statements
-    - [ ] Expressions
+    - [x] Expressions
 - [ ] Evaluation
 - [ ] REPL
 
