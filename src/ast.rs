@@ -60,6 +60,7 @@ define_expressions! {
     BooleanLiteral
     If
     FunctionLiteral
+    CallExpression
 }
 
 #[derive(Debug)]
@@ -185,5 +186,24 @@ impl Display for FunctionLiteral {
             .collect::<Vec<&str>>()
             .join(", ");
         write!(f, "{}({}) {}", self.token(), parameters, self.body)
+    }
+}
+
+#[derive(Debug, Node)]
+pub struct CallExpression {
+    pub token: Token,
+    pub function: Rc<Expression>,
+    pub arguments: Vec<Expression>,
+}
+
+impl Display for CallExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let arguments = self
+            .arguments
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<String>>()
+            .join(", ");
+        write!(f, "{}({})", self.function, arguments)
     }
 }
