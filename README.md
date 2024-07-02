@@ -30,7 +30,7 @@ misal tambah = fungsi(x, y) {
 
 misal hasil = tambah(lima, sepuluh);
 
-jika (hasil > 10) {
+jika hasil > 10 {
     kembalikan benar;
 } lainnya {
     kembalikan salah;
