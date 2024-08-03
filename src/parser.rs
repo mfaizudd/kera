@@ -482,9 +482,9 @@ mod tests {
     use core::panic;
 
     use crate::{
-        ast::{Expression, Node, Statement},
+        ast::{Expression, Statement},
         lexer::Lexer,
-        token::Token,
+        token::{Token, TokenContainer},
     };
 
     use super::Parser;

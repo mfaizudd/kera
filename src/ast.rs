@@ -1,12 +1,24 @@
 use std::{fmt::Display, rc::Rc};
 
 use derive_more::Display;
-use kera_macros::Node;
+use kera_macros::TokenContainer;
 
-use crate::token::Token;
+use crate::token::{Token, TokenContainer};
 
-pub trait Node {
-    fn token(&self) -> &Token;
+pub enum Node {
+    Program(Program),
+    Statement(Statement),
+    Expression(Expression),
+}
+
+impl TokenContainer for Node {
+    fn token(&self) -> &Token {
+        match self {
+            Node::Program(p) => p.token(),
+            Node::Statement(s) => s.token(),
+            Node::Expression(e) => e.token(),
+        }
+    }
 }
 
 macro_rules! define_statements {
@@ -17,7 +29,7 @@ macro_rules! define_statements {
             $($name($name),)*
         }
 
-        impl Node for Statement {
+        impl TokenContainer for Statement {
             fn token(&self) -> &Token {
                 match self {
                     $(Statement::$name(s) => s.token(),)*
@@ -35,7 +47,7 @@ macro_rules! define_expressions {
             $($name($name),)*
         }
 
-        impl Node for Expression {
+        impl TokenContainer for Expression {
             fn token(&self) -> &Token {
                 match self {
                     $(Expression::$name(e) => e.token(),)*
@@ -78,6 +90,15 @@ impl Display for Program {
     }
 }
 
+impl TokenContainer for Program {
+    fn token(&self) -> &Token {
+        if let Some(statement) = self.statements.first() {
+            return statement.token();
+        }
+        &Token::Illegal
+    }
+}
+
 #[allow(dead_code)]
 impl Program {
     pub fn statements(&self) -> &Vec<Statement> {
@@ -85,7 +106,7 @@ impl Program {
     }
 }
 
-#[derive(Debug, Node, Display)]
+#[derive(Debug, TokenContainer, Display)]
 #[display(fmt = "misal {} = {}", "name.value", "value")]
 pub struct Let {
     pub token: Token,
@@ -93,35 +114,35 @@ pub struct Let {
     pub value: Expression,
 }
 
-#[derive(Debug, Node, Display)]
+#[derive(Debug, TokenContainer, Display)]
 #[display(fmt = "kembalikan {}", return_value)]
 pub struct Return {
     pub token: Token,
     pub return_value: Expression,
 }
 
-#[derive(Debug, Clone, Node, Display)]
+#[derive(Debug, Clone, TokenContainer, Display)]
 #[display(fmt = "{}", value)]
 pub struct Identifier {
     pub token: Token,
     pub value: String,
 }
 
-#[derive(Debug, Node, Display)]
+#[derive(Debug, TokenContainer, Display)]
 #[display(fmt = "{}", value)]
 pub struct IntegerLiteral {
     pub token: Token,
     pub value: i64,
 }
 
-#[derive(Debug, Node, Display)]
+#[derive(Debug, TokenContainer, Display)]
 #[display(fmt = "({}{})", "token.literal()", "right")]
 pub struct Prefix {
     pub token: Token,
     pub right: Rc<Expression>,
 }
 
-#[derive(Debug, Node, Display)]
+#[derive(Debug, TokenContainer, Display)]
 #[display(fmt = "({} {} {})", left, "token.literal()", right)]
 pub struct Infix {
     pub token: Token,
@@ -129,14 +150,14 @@ pub struct Infix {
     pub right: Rc<Expression>,
 }
 
-#[derive(Debug, Node, Display)]
+#[derive(Debug, TokenContainer, Display)]
 #[display(fmt = "{}", "token.literal()")]
 pub struct BooleanLiteral {
     pub token: Token,
     pub value: bool,
 }
 
-#[derive(Debug, Node)]
+#[derive(Debug, TokenContainer)]
 pub struct If {
     pub token: Token,
     pub condition: Rc<Expression>,
@@ -154,7 +175,7 @@ impl Display for If {
     }
 }
 
-#[derive(Debug, Node)]
+#[derive(Debug, TokenContainer)]
 pub struct Block {
     pub token: Token,
     pub statements: Vec<Statement>,
@@ -170,7 +191,7 @@ impl Display for Block {
     }
 }
 
-#[derive(Debug, Node)]
+#[derive(Debug, TokenContainer)]
 pub struct FunctionLiteral {
     pub token: Token,
     pub parameters: Vec<Identifier>,
@@ -189,7 +210,7 @@ impl Display for FunctionLiteral {
     }
 }
 
-#[derive(Debug, Node)]
+#[derive(Debug, TokenContainer)]
 pub struct CallExpression {
     pub token: Token,
     pub function: Rc<Expression>,

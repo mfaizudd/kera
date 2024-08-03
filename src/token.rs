@@ -159,3 +159,7 @@ impl Token {
         }
     }
 }
+
+pub trait TokenContainer {
+    fn token(&self) -> &Token;
+}
