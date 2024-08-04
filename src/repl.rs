@@ -19,8 +19,8 @@ pub fn start() {
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         match program {
-            Ok(p) => {
-                let evaluated = evaluator::eval(Node::Program(p));
+            Ok(program) => {
+                let evaluated = evaluator::eval(Node::Program(&program));
                 println!("{}", evaluated.inspect());
             },
             Err(errors) => println!("Parse errors: {:?}", errors),

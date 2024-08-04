@@ -5,8 +5,9 @@ pub enum Value {
     None,
 }
 
-const TRUE: Value = Value::Boolean(true);
-const FALSE: Value = Value::Boolean(false);
+pub const TRUE: Value = Value::Boolean(true);
+pub const FALSE: Value = Value::Boolean(false);
+pub const NONE: Value = Value::None;
 
 impl From<bool> for Value {
     fn from(value: bool) -> Self {

@@ -5,13 +5,13 @@ use kera_macros::TokenContainer;
 
 use crate::token::{Token, TokenContainer};
 
-pub enum Node {
-    Program(Program),
-    Statement(Statement),
-    Expression(Expression),
+pub enum Node<'a> {
+    Program(&'a Program),
+    Statement(&'a Statement),
+    Expression(&'a Expression),
 }
 
-impl TokenContainer for Node {
+impl<'a> TokenContainer for Node<'a> {
     fn token(&self) -> &Token {
         match self {
             Node::Program(p) => p.token(),
