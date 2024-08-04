@@ -8,7 +8,7 @@ pub fn eval(node: Node) -> Value {
         Node::Program(program) => eval_statements(program.statements),
         Node::Statement(Statement::Expression(expression)) => eval(Node::Expression(expression)),
         Node::Expression(Expression::IntegerLiteral(literal)) => Value::Integer(literal.value),
-        Node::Expression(Expression::BooleanLiteral(literal)) => Value::Boolean(literal.value),
+        Node::Expression(Expression::BooleanLiteral(literal)) => literal.value.into(),
         _ => panic!("Unsupported yet"),
     }
 }
