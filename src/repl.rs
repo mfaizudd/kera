@@ -1,3 +1,5 @@
+use crate::ast::Node;
+use crate::evaluator;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use std::io;
@@ -17,7 +19,10 @@ pub fn start() {
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         match program {
-            Ok(p) => println!("{}", p),
+            Ok(p) => {
+                let evaluated = evaluator::eval(Node::Program(p));
+                println!("{}", evaluated.inspect());
+            },
             Err(errors) => println!("Parse errors: {:?}", errors),
         }
     }

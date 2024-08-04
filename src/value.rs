@@ -6,7 +6,7 @@ pub enum Value {
 }
 
 impl Value {
-    fn inspect(&self) -> String {
+    pub fn inspect(&self) -> String {
         match self {
             Value::Integer(v) => v.to_string(),
             Value::Boolean(v) => v.to_string(),
