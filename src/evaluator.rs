@@ -154,6 +154,11 @@ mod tests {
             ("5!=4", true),
             ("5==5", true),
             ("5!=5", false),
+            ("benar==benar", true),
+            ("salah==salah", true),
+            ("benar==salah", false),
+            ("benar!=benar", false),
+            ("benar!=salah", true),
         ];
         for case in tests {
             let evaluated = test_eval(case.0.into());
