@@ -84,8 +84,6 @@ fn eval_integer_infix_expression(operator: &Token, left: i64, right: i64) -> Val
 
 fn eval_boolean_infix_expression(operator: &Token, left: bool, right: bool) -> Value {
     match operator {
-        Token::GreaterThan => (left > right).into(),
-        Token::LessThan => (left < right).into(),
         Token::Equal => (left == right).into(),
         Token::NotEqual => (left != right).into(),
         _ => value::NONE,
