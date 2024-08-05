@@ -14,6 +14,11 @@ pub fn eval(node: Node) -> Value {
             let right = eval(Node::Expression(&*prefix.right));
             eval_prefix_expression(&prefix.token, right)
         }
+        Node::Expression(Expression::Infix(infix)) => {
+            let left = eval(Node::Expression(&infix.left));
+            let right = eval(Node::Expression(&infix.right));
+            eval_infix_expression(&infix.token, left, right)
+        }
         _ => panic!("Unsupported yet"),
     }
 }
@@ -34,6 +39,18 @@ fn eval_prefix_expression(operator: &Token, right: Value) -> Value {
     }
 }
 
+fn eval_infix_expression(operator: &Token, left: Value, right: Value) -> Value {
+    match (left, right) {
+        (Value::Integer(left), Value::Integer(right)) => {
+            eval_integer_infix_expression(operator, left, right)
+        }
+        (Value::Boolean(left), Value::Boolean(right)) => {
+            eval_boolean_infix_expression(operator, left, right)
+        }
+        _ => value::NONE,
+    }
+}
+
 fn eval_bang_operator_expression(right: Value) -> Value {
     match right {
         Value::Boolean(true) => value::FALSE,
@@ -49,6 +66,30 @@ fn eval_minus_prefix_operator_expression(right: Value) -> Value {
     };
 
     Value::Integer(-value)
+}
+
+fn eval_integer_infix_expression(operator: &Token, left: i64, right: i64) -> Value {
+    match operator {
+        Token::Plus => Value::Integer(left + right),
+        Token::Minus => Value::Integer(left - right),
+        Token::Asterisk => Value::Integer(left * right),
+        Token::Slash => Value::Integer(left / right),
+        Token::GreaterThan => (left > right).into(),
+        Token::LessThan => (left < right).into(),
+        Token::Equal => (left == right).into(),
+        Token::NotEqual => (left != right).into(),
+        _ => value::NONE,
+    }
+}
+
+fn eval_boolean_infix_expression(operator: &Token, left: bool, right: bool) -> Value {
+    match operator {
+        Token::GreaterThan => (left > right).into(),
+        Token::LessThan => (left < right).into(),
+        Token::Equal => (left == right).into(),
+        Token::NotEqual => (left != right).into(),
+        _ => value::NONE,
+    }
 }
 
 #[cfg(test)]
@@ -85,7 +126,17 @@ mod tests {
 
     #[test]
     fn test_eval_integer_expression() {
-        let tests = vec![("5", 5), ("10", 10), ("-5", -5), ("-10", -10)];
+        let tests = vec![
+            ("5", 5),
+            ("10", 10),
+            ("-5", -5),
+            ("-10", -10),
+            ("1 + 2 + 3", 6),
+            ("10 + 5 - 2", 13),
+            ("2 * 2", 4),
+            ("(7 + 5) * 2 / 3", 8),
+            ("5 + 6 * 4 / 6", 9),
+        ];
         for case in tests {
             let evaluated = test_eval(case.0.into());
             test_integer_value(evaluated, case.1);
@@ -94,7 +145,16 @@ mod tests {
 
     #[test]
     fn test_eval_boolean_expression() {
-        let tests = vec![("benar", true), ("salah", false)];
+        let tests = vec![
+            ("benar", true),
+            ("salah", false),
+            ("5>4", true),
+            ("5<4", false),
+            ("5==4", false),
+            ("5!=4", true),
+            ("5==5", true),
+            ("5!=5", false),
+        ];
         for case in tests {
             let evaluated = test_eval(case.0.into());
             test_boolean_value(evaluated, case.1);
