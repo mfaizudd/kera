@@ -92,7 +92,7 @@ fn eval_boolean_infix_expression(operator: &Token, left: bool, right: bool) -> V
 
 #[cfg(test)]
 mod tests {
-    use crate::{ast::Node, lexer::Lexer, parser::Parser, value::Value};
+    use crate::{ast::Node, lexer::Lexer, parser::Parser, value::{self, Value}};
 
     use super::eval;
 
@@ -180,6 +180,22 @@ mod tests {
         for case in tests {
             let evaluated = test_eval(case.0.into());
             test_boolean_value(evaluated, case.1)
+        }
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let tests = vec![
+            ("jika benar { 10 }", Value::Integer(10)),
+            ("jika salah { 10 }", value::NONE),
+            ("jika 1 { 10 }", Value::Integer(10)),
+            ("jika 1 < 2 { 10 }", Value::Integer(10)),
+            ("jika 1 > 2 { 10 }", value::NONE),
+        ];
+
+        for (input, expected) in tests {
+            let evaluated = test_eval(input.into());
+            assert_eq!(evaluated, expected);
         }
     }
 }
