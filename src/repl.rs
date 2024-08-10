@@ -20,7 +20,7 @@ pub fn start() {
         let program = parser.parse_program();
         match program {
             Ok(program) => {
-                let evaluated = evaluator::eval(Node::Program(&program));
+                let evaluated = evaluator::eval(Node::Program(program));
                 println!("{}", evaluated.inspect());
             },
             Err(errors) => println!("Parse errors: {:?}", errors),

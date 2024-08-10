@@ -163,8 +163,8 @@ impl Parser {
         Some(Expression::If(If {
             token: Token::If,
             condition,
-            consequence,
-            alternative,
+            consequence: Rc::new(Statement::Block(consequence)),
+            alternative: alternative.map(|a| Rc::new(Statement::Block(a))),
         }))
     }
 
@@ -365,7 +365,7 @@ impl Parser {
             match token {
                 Token::Let => return self.parse_let_statement().map(Statement::Let),
                 Token::Return => return self.parse_return_statement().map(Statement::Return),
-                _ => return self.parse_expression_statement().map(Statement::Expression),
+                _ => return self.parse_expression_statement().map(|e| Statement::Expression(Rc::new(e))),
             }
         }
         None
@@ -639,7 +639,7 @@ mod tests {
             let Statement::Expression(expression) = statement else {
                 panic!("Expected an expression statement, found {:?}", statement)
             };
-            let Expression::Prefix(prefix) = expression else {
+            let Expression::Prefix(prefix) = &**expression else {
                 panic!("Expected a prefix, found {:?}", statement)
             };
             assert_eq!(&case.operator, prefix.token());
@@ -744,7 +744,7 @@ mod tests {
                 panic!("Expected an expression statement, found {:?}", statement)
             };
 
-            let Expression::Infix(infix) = expression else {
+            let Expression::Infix(infix) = &**expression else {
                 panic!("Expected a infix, found {:?}", statement)
             };
             assert_eq!(&case.operator, infix.token());
@@ -886,7 +886,7 @@ mod tests {
         let Statement::Expression(expression) = statement else {
             panic!("Expected an expression statement, found: {:?}", statement)
         };
-        let Expression::If(if_expression) = expression else {
+        let Expression::If(if_expression) = &**expression else {
             panic!("Expected an if expression, found: {:?}", expression)
         };
         let Expression::Infix(condition) = &*if_expression.condition else {
@@ -898,15 +898,21 @@ mod tests {
         assert_eq!(Token::LessThan, condition.token);
         test_literal_expression(Token::Ident("x".into()), &condition.left);
         test_literal_expression(Token::Ident("y".into()), &condition.right);
+        let Statement::Block(consequence) = &*if_expression.consequence else {
+            panic!("Consequence is not a block statement")
+        };
         assert_eq!(
             1,
-            if_expression.consequence.statements.len(),
+            consequence.statements.len(),
             "Consequence is not 1 statement. got: {:?}",
-            if_expression.consequence.statements.len()
+            consequence.statements.len()
         );
-        let statement = if_expression.consequence.statements.get(0).unwrap();
-        let Statement::Expression(Expression::Identifier(consequence)) = statement else {
-            panic!("Expected an identifier, found: {:?}", statement)
+        let statement = consequence.statements.get(0).unwrap();
+        let Statement::Expression(expression) = statement else {
+            panic!("Expected an expression statement, found: {:?}", statement)
+        };
+        let Expression::Identifier(consequence) = &**expression else {
+            panic!("Expeced an identifier, found: {:?}", expression)
         };
         assert_eq!("x", consequence.value);
         assert!(if_expression.alternative.is_none());
@@ -928,7 +934,7 @@ mod tests {
         let Statement::Expression(expression) = statement else {
             panic!("Expected an expression statement, found: {:?}", statement)
         };
-        let Expression::If(if_expression) = expression else {
+        let Expression::If(if_expression) = &**expression else {
             panic!("Expected an if expression, found: {:?}", expression)
         };
         let Expression::Infix(condition) = &*if_expression.condition else {
@@ -940,33 +946,39 @@ mod tests {
         assert_eq!(Token::LessThan, condition.token);
         test_literal_expression(Token::Ident("x".into()), &condition.left);
         test_literal_expression(Token::Ident("y".into()), &condition.right);
+        let Statement::Block(consequence) = &*if_expression.consequence else {
+            panic!("Consequence is not a block statement")
+        };
         assert_eq!(
             1,
-            if_expression.consequence.statements.len(),
+            consequence.statements.len(),
             "Consequence is not 1 statement. got: {:?}",
-            if_expression.consequence.statements.len()
+            consequence.statements.len()
         );
-        let statement = if_expression.consequence.statements.get(0).unwrap();
-        let Statement::Expression(Expression::Identifier(consequence)) = statement else {
-            panic!("Expected an identifier, found: {:?}", statement)
+        let statement = consequence.statements.get(0).unwrap();
+        let Statement::Expression(expression) = statement else {
+            panic!("Expected an expression statement, found: {:?}", statement)
+        };
+        let Expression::Identifier(consequence) = &**expression else {
+            panic!("Expeced an identifier, found: {:?}", expression)
         };
         assert_eq!("x", consequence.value);
         assert!(if_expression.alternative.is_some());
+        let Statement::Block(alternative) = &**if_expression.alternative.as_ref().unwrap() else {
+            panic!("Consequence is not a block statement")
+        };
         assert_eq!(
             1,
-            if_expression.alternative.as_ref().unwrap().statements.len(),
+            alternative.statements.len(),
             "Consequence is not 1 statement. got: {:?}",
-            if_expression.alternative.as_ref().unwrap().statements.len()
+            alternative.statements.len()
         );
-        let statement = if_expression
-            .alternative
-            .as_ref()
-            .unwrap()
-            .statements
-            .get(0)
-            .unwrap();
-        let Statement::Expression(Expression::Identifier(alternative)) = statement else {
-            panic!("Expected an identifier, found: {:?}", statement)
+        let statement = alternative.statements.get(0).unwrap();
+        let Statement::Expression(expression) = statement else {
+            panic!("Expected an expression statement, found: {:?}", statement)
+        };
+        let Expression::Identifier(alternative) = &**expression else {
+            panic!("Expeced an identifier, found: {:?}", expression)
         };
         assert_eq!("y", alternative.value);
     }
@@ -987,7 +999,7 @@ mod tests {
         let Statement::Expression(expression) = statement else {
             panic!("Expected an expression statement, found: {:?}", statement)
         };
-        let Expression::FunctionLiteral(function) = expression else {
+        let Expression::FunctionLiteral(function) = &**expression else {
             panic!("Expected a function literal, found: {:?}", expression)
         };
         assert_eq!(function.parameters[0].value, "x");
@@ -999,7 +1011,7 @@ mod tests {
                 &function.body.statements[0]
             )
         };
-        let Expression::Infix(infix) = body else {
+        let Expression::Infix(infix) = &**body else {
             panic!("Expression is not an infix expression")
         };
         assert_eq!(infix.left.token(), &Token::Ident("x".into()));
@@ -1042,7 +1054,7 @@ mod tests {
             let Statement::Expression(expression) = statement else {
                 panic!("Expected an expression statement, found: {:?}", statement)
             };
-            let Expression::FunctionLiteral(function) = expression else {
+            let Expression::FunctionLiteral(function) = &**expression else {
                 panic!("Expected a function literal, found: {:?}", expression)
             };
             assert_eq!(function.parameters.len(), test.expected.len());
@@ -1068,7 +1080,7 @@ mod tests {
         let Statement::Expression(expression) = statement else {
             panic!("Expected an expression statement, found: {:?}", statement)
         };
-        let Expression::CallExpression(call) = expression else {
+        let Expression::CallExpression(call) = &**expression else {
             panic!("Expected a function literal, found: {:?}", expression)
         };
         assert_eq!(call.function.token(), &Token::Ident("add".into()));
@@ -1113,7 +1125,7 @@ mod tests {
             let Statement::Expression(expression) = statement else {
                 panic!("Expected an expression statement, found: {:?}", statement)
             };
-            let Expression::CallExpression(function) = expression else {
+            let Expression::CallExpression(function) = &**expression else {
                 panic!("Expected a function literal, found: {:?}", expression)
             };
             assert_eq!(function.arguments.len(), test.expected.len());

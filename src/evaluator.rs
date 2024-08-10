@@ -1,32 +1,43 @@
 use crate::{
-    ast::{Expression, Node, Statement},
-    token::Token,
+    ast::{Expression, If, Node, Statement},
+    token::{Token, TokenContainer},
     value::{self, Value},
 };
 
 pub fn eval(node: Node) -> Value {
     match node {
         Node::Program(program) => eval_statements(&program.statements),
-        Node::Statement(Statement::Expression(expression)) => eval(Node::Expression(expression)),
-        Node::Expression(Expression::IntegerLiteral(literal)) => Value::Integer(literal.value),
-        Node::Expression(Expression::BooleanLiteral(literal)) => literal.value.into(),
-        Node::Expression(Expression::Prefix(prefix)) => {
-            let right = eval(Node::Expression(&*prefix.right));
-            eval_prefix_expression(&prefix.token, right)
+        Node::Statement(statement) => {
+            match &*statement {
+                Statement::Expression(expression) => eval(Node::Expression(expression.clone())),
+                Statement::Block(block) => eval_statements(&block.statements),
+                _ => panic!("Unsupported yet")
+            }
         }
-        Node::Expression(Expression::Infix(infix)) => {
-            let left = eval(Node::Expression(&infix.left));
-            let right = eval(Node::Expression(&infix.right));
-            eval_infix_expression(&infix.token, left, right)
+        Node::Expression(expression) => {
+            match &*expression {
+                Expression::IntegerLiteral(literal) => Value::Integer(literal.value),
+                Expression::BooleanLiteral(literal) => literal.value.into(),
+                Expression::Prefix(prefix) => {
+                    let right = eval(Node::Expression(prefix.right.clone()));
+                    eval_prefix_expression(prefix.token(), right)
+                }
+                Expression::Infix(infix) => {
+                    let left = eval(Node::Expression(infix.left.clone()));
+                    let right = eval(Node::Expression(infix.right.clone()));
+                    eval_infix_expression(infix.token(), left, right)
+                }
+                Expression::If(ifelse) => eval_if_expression(ifelse),
+                _ => panic!("Unsupported yet")
+            }
         }
-        _ => panic!("Unsupported yet"),
     }
 }
 
 fn eval_statements(statements: &Vec<Statement>) -> Value {
     let mut result = Value::None;
     for statement in statements {
-        result = eval(Node::Statement(&statement))
+        result = eval(Node::Statement(statement))
     }
     result
 }
@@ -48,6 +59,17 @@ fn eval_infix_expression(operator: &Token, left: Value, right: Value) -> Value {
             eval_boolean_infix_expression(operator, left, right)
         }
         _ => value::NONE,
+    }
+}
+
+fn eval_if_expression(expression: &If) -> Value {
+    let condition = eval(Node::Expression(expression.condition.clone()));
+    if is_truthy(&condition) {
+        eval(Node::Statement(&*expression.consequence))
+    } else if let Some(alternative) = expression.alternative.clone() {
+        eval(Node::Statement(&*alternative))
+    } else {
+        value::NONE
     }
 }
 
@@ -90,9 +112,22 @@ fn eval_boolean_infix_expression(operator: &Token, left: bool, right: bool) -> V
     }
 }
 
+fn is_truthy(value: &Value) -> bool {
+    match value {
+        Value::None => false,
+        Value::Boolean(val) => *val,
+        _ => true,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{ast::Node, lexer::Lexer, parser::Parser, value::{self, Value}};
+    use crate::{
+        ast::Node,
+        lexer::Lexer,
+        parser::Parser,
+        value::{self, Value},
+    };
 
     use super::eval;
 
@@ -105,7 +140,7 @@ mod tests {
                 panic!("Parser has errors: {:?}", errors)
             }
         };
-        eval(Node::Program(&program))
+        eval(Node::Program(program))
     }
 
     fn test_integer_value(value: Value, expected: i64) {

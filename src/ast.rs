@@ -6,9 +6,9 @@ use kera_macros::TokenContainer;
 use crate::token::{Token, TokenContainer};
 
 pub enum Node<'a> {
-    Program(&'a Program),
+    Program(Program),
     Statement(&'a Statement),
-    Expression(&'a Expression),
+    Expression(Rc<Expression>),
 }
 
 impl<'a> TokenContainer for Node<'a> {
@@ -22,11 +22,11 @@ impl<'a> TokenContainer for Node<'a> {
 }
 
 macro_rules! define_statements {
-    ($($name:ident)*) => {
+    ($($name:ident $type:ty)*) => {
         #[derive(Debug, Display)]
         #[allow(dead_code)]
         pub enum Statement {
-            $($name($name),)*
+            $($name($type),)*
         }
 
         impl TokenContainer for Statement {
@@ -58,10 +58,10 @@ macro_rules! define_expressions {
 }
 
 define_statements! {
-    Let
-    Return
-    Expression
-    Block
+    Let Let
+    Return Return
+    Expression Rc<Expression>
+    Block Block
 }
 
 define_expressions! {
@@ -161,8 +161,8 @@ pub struct BooleanLiteral {
 pub struct If {
     pub token: Token,
     pub condition: Rc<Expression>,
-    pub consequence: Block,
-    pub alternative: Option<Block>,
+    pub consequence: Rc<Statement>,
+    pub alternative: Option<Rc<Statement>>,
 }
 
 impl Display for If {
