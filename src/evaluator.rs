@@ -14,6 +14,9 @@ pub fn eval(node: Node) -> Value {
             Statement::Block(block) => eval_block_statement(block),
             Statement::Return(rv) => {
                 let val = eval(Node::Expression(rv.return_value.clone()));
+                if let Value::Error(_) = val {
+                    return val
+                }
                 Value::Return(Rc::new(val))
             }
             _ => panic!("Unsupported yet"),
@@ -23,11 +26,20 @@ pub fn eval(node: Node) -> Value {
             Expression::BooleanLiteral(literal) => literal.value.into(),
             Expression::Prefix(prefix) => {
                 let right = eval(Node::Expression(prefix.right.clone()));
+                if let Value::Error(_) = right {
+                    return right
+                }
                 eval_prefix_expression(prefix.token(), right)
             }
             Expression::Infix(infix) => {
                 let left = eval(Node::Expression(infix.left.clone()));
+                if let Value::Error(_) = left {
+                    return left
+                }
                 let right = eval(Node::Expression(infix.right.clone()));
+                if let Value::Error(_) = right {
+                    return right
+                }
                 eval_infix_expression(infix.token(), left, right)
             }
             Expression::If(ifelse) => eval_if_expression(ifelse),
@@ -105,6 +117,9 @@ fn eval_infix_expression(operator: &Token, left: Value, right: Value) -> Value {
 
 fn eval_if_expression(expression: &If) -> Value {
     let condition = eval(Node::Expression(expression.condition.clone()));
+    if let Value::Error(_) = condition {
+        return condition
+    }
     if is_truthy(&condition) {
         eval(Node::Statement(&*expression.consequence))
     } else if let Some(alternative) = expression.alternative.clone() {
