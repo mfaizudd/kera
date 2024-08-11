@@ -9,34 +9,30 @@ use crate::{
 pub fn eval(node: Node) -> Value {
     match node {
         Node::Program(program) => eval_program(program),
-        Node::Statement(statement) => {
-            match &*statement {
-                Statement::Expression(expression) => eval(Node::Expression(expression.clone())),
-                Statement::Block(block) => eval_block_statement(block),
-                Statement::Return(rv) => {
-                    let val = eval(Node::Expression(rv.return_value.clone()));
-                    Value::Return(Rc::new(val))
-                }
-                _ => panic!("Unsupported yet")
+        Node::Statement(statement) => match &*statement {
+            Statement::Expression(expression) => eval(Node::Expression(expression.clone())),
+            Statement::Block(block) => eval_block_statement(block),
+            Statement::Return(rv) => {
+                let val = eval(Node::Expression(rv.return_value.clone()));
+                Value::Return(Rc::new(val))
             }
-        }
-        Node::Expression(expression) => {
-            match &*expression {
-                Expression::IntegerLiteral(literal) => Value::Integer(literal.value),
-                Expression::BooleanLiteral(literal) => literal.value.into(),
-                Expression::Prefix(prefix) => {
-                    let right = eval(Node::Expression(prefix.right.clone()));
-                    eval_prefix_expression(prefix.token(), right)
-                }
-                Expression::Infix(infix) => {
-                    let left = eval(Node::Expression(infix.left.clone()));
-                    let right = eval(Node::Expression(infix.right.clone()));
-                    eval_infix_expression(infix.token(), left, right)
-                }
-                Expression::If(ifelse) => eval_if_expression(ifelse),
-                _ => panic!("Unsupported yet")
+            _ => panic!("Unsupported yet"),
+        },
+        Node::Expression(expression) => match &*expression {
+            Expression::IntegerLiteral(literal) => Value::Integer(literal.value),
+            Expression::BooleanLiteral(literal) => literal.value.into(),
+            Expression::Prefix(prefix) => {
+                let right = eval(Node::Expression(prefix.right.clone()));
+                eval_prefix_expression(prefix.token(), right)
             }
-        }
+            Expression::Infix(infix) => {
+                let left = eval(Node::Expression(infix.left.clone()));
+                let right = eval(Node::Expression(infix.right.clone()));
+                eval_infix_expression(infix.token(), left, right)
+            }
+            Expression::If(ifelse) => eval_if_expression(ifelse),
+            _ => panic!("Unsupported yet"),
+        },
     }
 }
 
@@ -44,8 +40,10 @@ fn eval_program(program: Program) -> Value {
     let mut result = Value::None;
     for statement in program.statements {
         result = eval(Node::Statement(&statement));
-        if let Value::Return(val) = result {
-            return (*val).clone()
+        match result {
+            Value::Return(val) => return (*val).clone(),
+            Value::Error(_) => return result,
+            _ => (),
         }
     }
     result
@@ -55,8 +53,10 @@ fn eval_block_statement(block: &Block) -> Value {
     let mut result = Value::None;
     for statement in &block.statements {
         result = eval(Node::Statement(&statement));
-        if let Value::Return(_) = result {
-            return result
+        match result {
+            Value::Return(_) => return result,
+            Value::Error(_) => return result,
+            _ => (),
         }
     }
     result
@@ -66,7 +66,11 @@ fn eval_prefix_expression(operator: &Token, right: Value) -> Value {
     match operator {
         Token::Bang => eval_bang_operator_expression(right),
         Token::Minus => eval_minus_prefix_operator_expression(right),
-        _ => value::NONE,
+        _ => Value::Error(format!(
+            "Operator tidak dikenal: {}{}",
+            operator.literal(),
+            right.value_type()
+        )),
     }
 }
 
@@ -78,7 +82,24 @@ fn eval_infix_expression(operator: &Token, left: Value, right: Value) -> Value {
         (Value::Boolean(left), Value::Boolean(right)) => {
             eval_boolean_infix_expression(operator, left, right)
         }
-        _ => value::NONE,
+        (left, right) => {
+            let left_type = left.value_type();
+            let right_type = right.value_type();
+            if left_type != right_type {
+                return Value::Error(format!(
+                    "Tipe tidak cocok: {} {} {}",
+                    left_type,
+                    operator.literal(),
+                    right_type
+                ));
+            }
+            Value::Error(format!(
+                "Operator tidak dikenal: {} {} {}",
+                left_type,
+                operator.literal(),
+                right_type
+            ))
+        }
     }
 }
 
@@ -104,7 +125,7 @@ fn eval_bang_operator_expression(right: Value) -> Value {
 
 fn eval_minus_prefix_operator_expression(right: Value) -> Value {
     let Value::Integer(value) = right else {
-        return value::NONE;
+        return Value::Error(format!("Operator tidak dikenal: -{}", right.value_type()));
     };
 
     Value::Integer(-value)
@@ -120,7 +141,10 @@ fn eval_integer_infix_expression(operator: &Token, left: i64, right: i64) -> Val
         Token::LessThan => (left < right).into(),
         Token::Equal => (left == right).into(),
         Token::NotEqual => (left != right).into(),
-        _ => value::NONE,
+        _ => Value::Error(format!(
+            "Operator tidak dikenal: Bilangan bulat {} Bilangan bulat",
+            operator.literal(),
+        )),
     }
 }
 
@@ -128,7 +152,10 @@ fn eval_boolean_infix_expression(operator: &Token, left: bool, right: bool) -> V
     match operator {
         Token::Equal => (left == right).into(),
         Token::NotEqual => (left != right).into(),
-        _ => value::NONE,
+        _ => Value::Error(format!(
+            "Operator tidak dikenal: Boolean {} Boolean",
+            operator.literal(),
+        )),
     }
 }
 
@@ -261,19 +288,63 @@ mod tests {
             ("kembalikan 9; 10;", 9),
             ("kembalikan 3 * 5; 9;", 15),
             ("1; kembalikan 4 * 5; 1;", 20),
-            (r#"
+            (
+                r#"
             jika 1 > 0 {
                 jika 1 > 0 {
                     kembalikan 2;
                 }
                 kembalikan 1;
             }
-            "#, 2)
+            "#,
+                2,
+            ),
         ];
 
         for (input, expected) in tests {
             let evaluated = test_eval(input.into());
             test_integer_value(evaluated, expected);
+        }
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let tests = vec![
+            ("0 + salah;", "Tipe tidak cocok: Bilangan bulat + Boolean"),
+            (
+                "0 + salah; 0;",
+                "Tipe tidak cocok: Bilangan bulat + Boolean",
+            ),
+            ("-salah", "Operator tidak dikenal: -Boolean"),
+            ("salah + salah", "Operator tidak dikenal: Boolean + Boolean"),
+            (
+                "0; salah + salah; 0;",
+                "Operator tidak dikenal: Boolean + Boolean",
+            ),
+            (
+                "jika 1 > 0 { salah + salah }",
+                "Operator tidak dikenal: Boolean + Boolean",
+            ),
+            (
+                r#"
+            jika 1 > 0 {
+                jika 1 > 0 {
+                    kembalikan salah + salah;
+                }
+                kembalikan 0;
+            }
+            "#,
+                "Operator tidak dikenal: Boolean + Boolean",
+            ),
+        ];
+
+        for (input, expected) in tests {
+            let evaluated = test_eval(input.into());
+            let Value::Error(msg) = evaluated else {
+                println!("Input: {}", input);
+                panic!("No error object returned. Got: {:?}", evaluated)
+            };
+            assert_eq!(msg, expected)
         }
     }
 }
