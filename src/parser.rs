@@ -400,7 +400,7 @@ impl Parser {
         Some(Let {
             token: Token::Let,
             name,
-            value: expression,
+            value: Rc::new(expression),
         })
     }
 

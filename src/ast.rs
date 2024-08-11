@@ -111,7 +111,7 @@ impl Program {
 pub struct Let {
     pub token: Token,
     pub name: Identifier,
-    pub value: Expression,
+    pub value: Rc<Expression>,
 }
 
 #[derive(Debug, TokenContainer, Display)]

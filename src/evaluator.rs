@@ -1,57 +1,65 @@
 use std::rc::Rc;
 
 use crate::{
-    ast::{Block, Expression, If, Node, Program, Statement},
+    ast::{Block, Expression, Identifier, If, Node, Program, Statement},
     token::{Token, TokenContainer},
-    value::{self, Value},
+    value::{self, Environment, Value},
 };
 
-pub fn eval(node: Node) -> Value {
+pub fn eval(node: Node, env: &mut Environment) -> Value {
     match node {
-        Node::Program(program) => eval_program(program),
+        Node::Program(program) => eval_program(program, env),
         Node::Statement(statement) => match &*statement {
-            Statement::Expression(expression) => eval(Node::Expression(expression.clone())),
-            Statement::Block(block) => eval_block_statement(block),
+            Statement::Expression(expression) => eval(Node::Expression(expression.clone()), env),
+            Statement::Block(block) => eval_block_statement(block, env),
             Statement::Return(rv) => {
-                let val = eval(Node::Expression(rv.return_value.clone()));
+                let val = eval(Node::Expression(rv.return_value.clone()), env);
                 if let Value::Error(_) = val {
                     return val
                 }
                 Value::Return(Rc::new(val))
             }
-            _ => panic!("Unsupported yet"),
+            Statement::Let(statement) => {
+                let val = eval(Node::Expression(statement.value.clone()), env);
+                if let Value::Error(_) = val {
+                    return val
+                }
+                env.set(statement.name.value.clone(), val.clone());
+                val
+            }
         },
         Node::Expression(expression) => match &*expression {
             Expression::IntegerLiteral(literal) => Value::Integer(literal.value),
             Expression::BooleanLiteral(literal) => literal.value.into(),
             Expression::Prefix(prefix) => {
-                let right = eval(Node::Expression(prefix.right.clone()));
+                let right = eval(Node::Expression(prefix.right.clone()), env);
                 if let Value::Error(_) = right {
                     return right
                 }
                 eval_prefix_expression(prefix.token(), right)
             }
             Expression::Infix(infix) => {
-                let left = eval(Node::Expression(infix.left.clone()));
+                let left = eval(Node::Expression(infix.left.clone()), env);
                 if let Value::Error(_) = left {
                     return left
                 }
-                let right = eval(Node::Expression(infix.right.clone()));
+                let right = eval(Node::Expression(infix.right.clone()), env);
                 if let Value::Error(_) = right {
                     return right
                 }
                 eval_infix_expression(infix.token(), left, right)
             }
-            Expression::If(ifelse) => eval_if_expression(ifelse),
+            Expression::If(ifelse) => eval_if_expression(ifelse, env),
+            Expression::Identifier(identifier) => eval_identifier(identifier, env),
             _ => panic!("Unsupported yet"),
         },
     }
 }
 
-fn eval_program(program: Program) -> Value {
+fn eval_program(program: Program, env: &mut Environment) -> Value {
     let mut result = Value::None;
     for statement in program.statements {
-        result = eval(Node::Statement(&statement));
+        result = eval(Node::Statement(&statement), env);
         match result {
             Value::Return(val) => return (*val).clone(),
             Value::Error(_) => return result,
@@ -61,10 +69,10 @@ fn eval_program(program: Program) -> Value {
     result
 }
 
-fn eval_block_statement(block: &Block) -> Value {
+fn eval_block_statement(block: &Block, env: &mut Environment) -> Value {
     let mut result = Value::None;
     for statement in &block.statements {
-        result = eval(Node::Statement(&statement));
+        result = eval(Node::Statement(&statement), env);
         match result {
             Value::Return(_) => return result,
             Value::Error(_) => return result,
@@ -115,17 +123,24 @@ fn eval_infix_expression(operator: &Token, left: Value, right: Value) -> Value {
     }
 }
 
-fn eval_if_expression(expression: &If) -> Value {
-    let condition = eval(Node::Expression(expression.condition.clone()));
+fn eval_if_expression(expression: &If, env: &mut Environment) -> Value {
+    let condition = eval(Node::Expression(expression.condition.clone()), env);
     if let Value::Error(_) = condition {
         return condition
     }
     if is_truthy(&condition) {
-        eval(Node::Statement(&*expression.consequence))
+        eval(Node::Statement(&*expression.consequence), env)
     } else if let Some(alternative) = expression.alternative.clone() {
-        eval(Node::Statement(&*alternative))
+        eval(Node::Statement(&*alternative), env)
     } else {
         value::NONE
+    }
+}
+
+fn eval_identifier(identifier: &Identifier, env: &mut Environment) -> Value {
+    match env.get(identifier.value.clone()) {
+        Some(val) => val.clone(),
+        None => Value::Error(format!("Pengenal tidak ditemukan: {}", identifier.value)),
     }
 }
 
@@ -188,7 +203,7 @@ mod tests {
         ast::Node,
         lexer::Lexer,
         parser::Parser,
-        value::{self, Value},
+        value::{self, Environment, Value},
     };
 
     use super::eval;
@@ -202,7 +217,8 @@ mod tests {
                 panic!("Parser has errors: {:?}", errors)
             }
         };
-        eval(Node::Program(program))
+        let mut env = Environment::new();
+        eval(Node::Program(program), &mut env)
     }
 
     fn test_integer_value(value: Value, expected: i64) {
@@ -351,6 +367,7 @@ mod tests {
             "#,
                 "Operator tidak dikenal: Boolean + Boolean",
             ),
+            ("foobar", "Pengenal tidak ditemukan: foobar")
         ];
 
         for (input, expected) in tests {
@@ -360,6 +377,20 @@ mod tests {
                 panic!("No error object returned. Got: {:?}", evaluated)
             };
             assert_eq!(msg, expected)
+        }
+    }
+
+    #[test]
+    fn test_let_statements() {
+        let tests = vec![
+            ("misal a = 1; a;", 1),
+            ("misal a = 2 * 2; a;", 4),
+            ("misal a = 2; misal b = a; b;", 2),
+            ("misal a = 2; misal b = a; misal c = a + b + 1; c;", 5),
+        ];
+
+        for (input, expected) in tests {
+            test_integer_value(test_eval(input.into()), expected)
         }
     }
 }

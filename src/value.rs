@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug, PartialEq)]
 pub enum Value {
@@ -54,5 +54,25 @@ impl Clone for Value {
             Value::None => Value::None,
             Value::Error(msg) => Value::Error(msg.clone()),
         }
+    }
+}
+
+pub struct Environment {
+    store: HashMap<String, Value>
+}
+
+impl Environment {
+    pub fn new() -> Self {
+        Environment {
+            store: HashMap::new()
+        }
+    }
+
+    pub fn get(&self, name: String) -> Option<&Value> {
+        self.store.get(&name)
+    }
+
+    pub fn set(&mut self, name: String, val: Value) {
+        self.store.insert(name, val);
     }
 }

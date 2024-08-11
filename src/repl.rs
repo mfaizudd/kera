@@ -2,6 +2,7 @@ use crate::ast::Node;
 use crate::evaluator;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
+use crate::value::Environment;
 use std::io;
 use std::io::Write;
 
@@ -10,6 +11,7 @@ static PROMPT: &str = ">>> ";
 pub fn start() {
     let stdin = io::stdin();
     let mut stdout = io::stdout();
+    let mut env = Environment::new();
     loop {
         print!("{}", PROMPT);
         stdout.flush().expect("Failed to flush stdout");
@@ -20,7 +22,7 @@ pub fn start() {
         let program = parser.parse_program();
         match program {
             Ok(program) => {
-                let evaluated = evaluator::eval(Node::Program(program));
+                let evaluated = evaluator::eval(Node::Program(program), &mut env);
                 println!("{}", evaluated.inspect());
             },
             Err(errors) => println!("Parse errors: {:?}", errors),
