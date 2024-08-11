@@ -118,7 +118,7 @@ pub struct Let {
 #[display(fmt = "kembalikan {}", return_value)]
 pub struct Return {
     pub token: Token,
-    pub return_value: Expression,
+    pub return_value: Rc<Expression>,
 }
 
 #[derive(Debug, Clone, TokenContainer, Display)]

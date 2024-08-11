@@ -1,16 +1,22 @@
+use std::rc::Rc;
+
 use crate::{
-    ast::{Expression, If, Node, Statement},
+    ast::{Block, Expression, If, Node, Program, Statement},
     token::{Token, TokenContainer},
     value::{self, Value},
 };
 
 pub fn eval(node: Node) -> Value {
     match node {
-        Node::Program(program) => eval_statements(&program.statements),
+        Node::Program(program) => eval_program(program),
         Node::Statement(statement) => {
             match &*statement {
                 Statement::Expression(expression) => eval(Node::Expression(expression.clone())),
-                Statement::Block(block) => eval_statements(&block.statements),
+                Statement::Block(block) => eval_block_statement(block),
+                Statement::Return(rv) => {
+                    let val = eval(Node::Expression(rv.return_value.clone()));
+                    Value::Return(Rc::new(val))
+                }
                 _ => panic!("Unsupported yet")
             }
         }
@@ -34,10 +40,24 @@ pub fn eval(node: Node) -> Value {
     }
 }
 
-fn eval_statements(statements: &Vec<Statement>) -> Value {
+fn eval_program(program: Program) -> Value {
     let mut result = Value::None;
-    for statement in statements {
-        result = eval(Node::Statement(statement))
+    for statement in program.statements {
+        result = eval(Node::Statement(&statement));
+        if let Value::Return(val) = result {
+            return (*val).clone()
+        }
+    }
+    result
+}
+
+fn eval_block_statement(block: &Block) -> Value {
+    let mut result = Value::None;
+    for statement in &block.statements {
+        result = eval(Node::Statement(&statement));
+        if let Value::Return(_) = result {
+            return result
+        }
     }
     result
 }
@@ -231,6 +251,29 @@ mod tests {
         for (input, expected) in tests {
             let evaluated = test_eval(input.into());
             assert_eq!(evaluated, expected);
+        }
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let tests = vec![
+            ("kembalikan 10;", 10),
+            ("kembalikan 9; 10;", 9),
+            ("kembalikan 3 * 5; 9;", 15),
+            ("1; kembalikan 4 * 5; 1;", 20),
+            (r#"
+            jika 1 > 0 {
+                jika 1 > 0 {
+                    kembalikan 2;
+                }
+                kembalikan 1;
+            }
+            "#, 2)
+        ];
+
+        for (input, expected) in tests {
+            let evaluated = test_eval(input.into());
+            test_integer_value(evaluated, expected);
         }
     }
 }

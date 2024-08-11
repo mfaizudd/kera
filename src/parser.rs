@@ -419,7 +419,7 @@ impl Parser {
 
         Some(Return {
             token: Token::Return,
-            return_value: expression,
+            return_value: Rc::new(expression),
         })
     }
 

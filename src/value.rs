@@ -1,7 +1,10 @@
+use std::rc::Rc;
+
 #[derive(Debug, PartialEq)]
 pub enum Value {
     Integer(i64),
     Boolean(bool),
+    Return(Rc<Value>),
     None,
 }
 
@@ -24,7 +27,19 @@ impl Value {
         match self {
             Value::Integer(v) => v.to_string(),
             Value::Boolean(v) => v.to_string(),
+            Value::Return(v) => v.inspect(),
             Value::None => String::from("Nihil"),
+        }
+    }
+}
+
+impl Clone for Value {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Integer(v) => Self::Integer(v.clone()),
+            Self::Boolean(v) => (*v).into(),
+            Self::Return(v) => Self::Return(v.clone()),
+            Self::None => Self::None,
         }
     }
 }
