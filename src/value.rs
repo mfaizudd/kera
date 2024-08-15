@@ -1,10 +1,13 @@
 use std::{collections::HashMap, rc::Rc};
 
-#[derive(Debug, PartialEq)]
+use crate::ast::{Block, Identifier};
+
+#[derive(Debug)]
 pub enum Value {
     Integer(i64),
     Boolean(bool),
     Return(Rc<Value>),
+    Function(Rc<Function>),
     Error(String),
     None,
 }
@@ -29,6 +32,15 @@ impl Value {
             Value::Integer(v) => v.to_string(),
             Value::Boolean(v) => v.to_string(),
             Value::Return(v) => v.inspect(),
+            Value::Function(v) => {
+                let parameters = v
+                    .parameters
+                    .iter()
+                    .map(|p| p.value.as_ref())
+                    .collect::<Vec<&str>>()
+                    .join(", ");
+                format!("fungsi({}) {}", parameters, v.body)
+            }
             Value::None => String::from("Nihil"),
             Value::Error(s) => format!("Kesalahan: {s}"),
         }
@@ -39,6 +51,7 @@ impl Value {
             Value::Integer(_) => "Bilangan bulat",
             Value::Boolean(_) => "Boolean",
             Value::Return(_) => "Kembalian",
+            Value::Function(_) => "Fungsi",
             Value::Error(_) => "Kesalahan",
             Value::None => "Nihil",
         }
@@ -51,20 +64,22 @@ impl Clone for Value {
             Value::Integer(v) => Value::Integer(v.clone()),
             Value::Boolean(v) => (*v).into(),
             Value::Return(v) => Value::Return(v.clone()),
-            Value::None => Value::None,
+            Value::Function(v) => Value::Function(v.clone()),
+            Value::None => NONE,
             Value::Error(msg) => Value::Error(msg.clone()),
         }
     }
 }
 
+#[derive(Debug)]
 pub struct Environment {
-    store: HashMap<String, Value>
+    store: HashMap<String, Value>,
 }
 
 impl Environment {
     pub fn new() -> Self {
         Environment {
-            store: HashMap::new()
+            store: HashMap::new(),
         }
     }
 
@@ -75,4 +90,11 @@ impl Environment {
     pub fn set(&mut self, name: String, val: Value) {
         self.store.insert(name, val);
     }
+}
+
+#[derive(Debug)]
+pub struct Function {
+    pub parameters: Vec<Identifier>,
+    pub body: Block,
+    pub env: Environment,
 }

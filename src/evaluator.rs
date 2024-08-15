@@ -15,14 +15,14 @@ pub fn eval(node: Node, env: &mut Environment) -> Value {
             Statement::Return(rv) => {
                 let val = eval(Node::Expression(rv.return_value.clone()), env);
                 if let Value::Error(_) = val {
-                    return val
+                    return val;
                 }
                 Value::Return(Rc::new(val))
             }
             Statement::Let(statement) => {
                 let val = eval(Node::Expression(statement.value.clone()), env);
                 if let Value::Error(_) = val {
-                    return val
+                    return val;
                 }
                 env.set(statement.name.value.clone(), val.clone());
                 val
@@ -34,18 +34,18 @@ pub fn eval(node: Node, env: &mut Environment) -> Value {
             Expression::Prefix(prefix) => {
                 let right = eval(Node::Expression(prefix.right.clone()), env);
                 if let Value::Error(_) = right {
-                    return right
+                    return right;
                 }
                 eval_prefix_expression(prefix.token(), right)
             }
             Expression::Infix(infix) => {
                 let left = eval(Node::Expression(infix.left.clone()), env);
                 if let Value::Error(_) = left {
-                    return left
+                    return left;
                 }
                 let right = eval(Node::Expression(infix.right.clone()), env);
                 if let Value::Error(_) = right {
-                    return right
+                    return right;
                 }
                 eval_infix_expression(infix.token(), left, right)
             }
@@ -126,7 +126,7 @@ fn eval_infix_expression(operator: &Token, left: Value, right: Value) -> Value {
 fn eval_if_expression(expression: &If, env: &mut Environment) -> Value {
     let condition = eval(Node::Expression(expression.condition.clone()), env);
     if let Value::Error(_) = condition {
-        return condition
+        return condition;
     }
     if is_truthy(&condition) {
         eval(Node::Statement(&*expression.consequence), env)
@@ -235,6 +235,17 @@ mod tests {
         assert_eq!(boolean, expected);
     }
 
+    fn assert_value(value: &Value, expected: &Value) {
+        match (value, expected) {
+            (Value::Integer(a), Value::Integer(b)) => assert_eq!(a, b),
+            (Value::Boolean(a), Value::Boolean(b)) => assert_eq!(a, b),
+            (Value::Return(a), Value::Return(b)) => assert_value(a, b),
+            (Value::Error(a), Value::Error(b)) => assert_eq!(a, b),
+            (Value::None, Value::None) => (),
+            _ => panic!("Expected {:?}, got {:?}", expected, value),
+        }
+    }
+
     #[test]
     fn test_eval_integer_expression() {
         let tests = vec![
@@ -308,7 +319,7 @@ mod tests {
 
         for (input, expected) in tests {
             let evaluated = test_eval(input.into());
-            assert_eq!(evaluated, expected);
+            assert_value(&evaluated, &expected);
         }
     }
 
@@ -367,7 +378,7 @@ mod tests {
             "#,
                 "Operator tidak dikenal: Boolean + Boolean",
             ),
-            ("foobar", "Pengenal tidak ditemukan: foobar")
+            ("foobar", "Pengenal tidak ditemukan: foobar"),
         ];
 
         for (input, expected) in tests {
