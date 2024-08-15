@@ -235,17 +235,6 @@ mod tests {
         assert_eq!(boolean, expected);
     }
 
-    fn assert_value(value: &Value, expected: &Value) {
-        match (value, expected) {
-            (Value::Integer(a), Value::Integer(b)) => assert_eq!(a, b),
-            (Value::Boolean(a), Value::Boolean(b)) => assert_eq!(a, b),
-            (Value::Return(a), Value::Return(b)) => assert_value(a, b),
-            (Value::Error(a), Value::Error(b)) => assert_eq!(a, b),
-            (Value::None, Value::None) => (),
-            _ => panic!("Expected {:?}, got {:?}", expected, value),
-        }
-    }
-
     #[test]
     fn test_eval_integer_expression() {
         let tests = vec![
@@ -319,7 +308,7 @@ mod tests {
 
         for (input, expected) in tests {
             let evaluated = test_eval(input.into());
-            assert_value(&evaluated, &expected);
+            assert_eq!(evaluated, expected);
         }
     }
 
