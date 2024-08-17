@@ -483,4 +483,18 @@ mod tests {
             test_integer_value(test_eval(input.into()), expected);
         }
     }
+
+    #[test]
+    fn test_closures() {
+        let input = r#"
+        misal buatPenambah = fungsi(x) {
+            fungsi(y) { x + y };
+        };
+
+        misal tambahDua = buatPenambah(2);
+        tambahDua(2)
+        "#;
+
+        test_integer_value(test_eval(input.into()), 4);
+    }
 }
