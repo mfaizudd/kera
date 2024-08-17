@@ -185,7 +185,7 @@ impl Display for Block {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut result = String::new();
         for statement in self.statements.iter() {
-            result.push_str(&format!("{}", statement))
+            result.push_str(&format!("{};", statement))
         }
         write!(f, "{{ {} }}", result)
     }
@@ -194,8 +194,8 @@ impl Display for Block {
 #[derive(Debug, TokenContainer)]
 pub struct FunctionLiteral {
     pub token: Token,
-    pub parameters: Vec<Identifier>,
-    pub body: Block,
+    pub parameters: Rc<Vec<Identifier>>,
+    pub body: Rc<Statement>,
 }
 
 impl Display for FunctionLiteral {
@@ -213,8 +213,8 @@ impl Display for FunctionLiteral {
 #[derive(Debug, TokenContainer)]
 pub struct CallExpression {
     pub token: Token,
-    pub function: Rc<Expression>,
-    pub arguments: Vec<Expression>,
+    pub function_ident: Rc<Expression>,
+    pub arguments: Vec<Rc<Expression>>,
 }
 
 impl Display for CallExpression {
@@ -225,6 +225,6 @@ impl Display for CallExpression {
             .map(|p| p.to_string())
             .collect::<Vec<String>>()
             .join(", ");
-        write!(f, "{}({})", self.function, arguments)
+        write!(f, "{}({})", self.function_ident, arguments)
     }
 }

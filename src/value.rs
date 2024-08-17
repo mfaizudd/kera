@@ -1,6 +1,6 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::ast::{Block, Identifier};
+use crate::ast::{Identifier, Statement};
 
 #[derive(Debug)]
 pub enum Value {
@@ -85,28 +85,43 @@ impl Clone for Value {
 
 #[derive(Debug)]
 pub struct Environment {
-    store: HashMap<String, Value>,
+    store: HashMap<String, Rc<Value>>,
+    outer: Option<Rc<RefCell<Environment>>>,
 }
 
 impl Environment {
     pub fn new() -> Self {
         Environment {
             store: HashMap::new(),
+            outer: None,
         }
     }
 
-    pub fn get(&self, name: String) -> Option<&Value> {
-        self.store.get(&name)
+    pub fn new_enclosed(env: Rc<RefCell<Environment>>) -> Self {
+        Environment {
+            store: HashMap::new(),
+            outer: Some(env),
+        }
     }
 
-    pub fn set(&mut self, name: String, val: Value) {
+    pub fn get(&self, name: String) -> Option<Rc<Value>> {
+        let val = self.store.get(&name).map(|v| (*v).clone());
+        if let Some(_) = val {
+            return val;
+        }
+        let binding = self.outer.as_ref()?.clone();
+        let outer = (*binding).borrow();
+        outer.get(name)
+    }
+
+    pub fn set(&mut self, name: String, val: Rc<Value>) {
         self.store.insert(name, val);
     }
 }
 
 #[derive(Debug)]
 pub struct Function {
-    pub parameters: Vec<Identifier>,
-    pub body: Block,
-    pub env: Environment,
+    pub parameters: Rc<Vec<Identifier>>,
+    pub body: Rc<Statement>,
+    pub env: Rc<RefCell<Environment>>,
 }

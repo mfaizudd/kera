@@ -1,12 +1,12 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     ast::{Block, Expression, Identifier, If, Node, Program, Statement},
     token::{Token, TokenContainer},
-    value::{self, Environment, Value},
+    value::{self, Environment, Function, Value},
 };
 
-pub fn eval(node: Node, env: &mut Environment) -> Value {
+pub fn eval(node: Node, env: Rc<RefCell<Environment>>) -> Value {
     match node {
         Node::Program(program) => eval_program(program, env),
         Node::Statement(statement) => match &*statement {
@@ -20,17 +20,23 @@ pub fn eval(node: Node, env: &mut Environment) -> Value {
                 Value::Return(Rc::new(val))
             }
             Statement::Let(statement) => {
-                let val = eval(Node::Expression(statement.value.clone()), env);
+                let val = eval(Node::Expression(statement.value.clone()), env.clone());
                 if let Value::Error(_) = val {
                     return val;
                 }
-                env.set(statement.name.value.clone(), val.clone());
+                env.borrow_mut()
+                    .set(statement.name.value.clone(), Rc::new(val.clone()));
                 val
             }
         },
         Node::Expression(expression) => match &*expression {
             Expression::IntegerLiteral(literal) => Value::Integer(literal.value),
             Expression::BooleanLiteral(literal) => literal.value.into(),
+            Expression::FunctionLiteral(literal) => Value::Function(Rc::new(Function {
+                parameters: literal.parameters.clone(),
+                body: literal.body.clone(),
+                env: env.clone(),
+            })),
             Expression::Prefix(prefix) => {
                 let right = eval(Node::Expression(prefix.right.clone()), env);
                 if let Value::Error(_) = right {
@@ -39,7 +45,7 @@ pub fn eval(node: Node, env: &mut Environment) -> Value {
                 eval_prefix_expression(prefix.token(), right)
             }
             Expression::Infix(infix) => {
-                let left = eval(Node::Expression(infix.left.clone()), env);
+                let left = eval(Node::Expression(infix.left.clone()), env.clone());
                 if let Value::Error(_) = left {
                     return left;
                 }
@@ -51,15 +57,25 @@ pub fn eval(node: Node, env: &mut Environment) -> Value {
             }
             Expression::If(ifelse) => eval_if_expression(ifelse, env),
             Expression::Identifier(identifier) => eval_identifier(identifier, env),
-            _ => panic!("Unsupported yet"),
+            Expression::CallExpression(call) => {
+                let function = eval(Node::Expression(call.function_ident.clone()), env.clone());
+                if let Value::Error(_) = function {
+                    return function;
+                };
+                let arguments = match eval_expressions(&call.arguments, env) {
+                    Ok(args) => args,
+                    Err(error) => return Value::Error(error),
+                };
+                apply_function(function, arguments)
+            }
         },
     }
 }
 
-fn eval_program(program: Program, env: &mut Environment) -> Value {
+fn eval_program(program: Program, env: Rc<RefCell<Environment>>) -> Value {
     let mut result = Value::None;
     for statement in program.statements {
-        result = eval(Node::Statement(&statement), env);
+        result = eval(Node::Statement(&statement), env.clone());
         match result {
             Value::Return(val) => return (*val).clone(),
             Value::Error(_) => return result,
@@ -69,10 +85,10 @@ fn eval_program(program: Program, env: &mut Environment) -> Value {
     result
 }
 
-fn eval_block_statement(block: &Block, env: &mut Environment) -> Value {
+fn eval_block_statement(block: &Block, env: Rc<RefCell<Environment>>) -> Value {
     let mut result = Value::None;
     for statement in &block.statements {
-        result = eval(Node::Statement(&statement), env);
+        result = eval(Node::Statement(&statement), env.clone());
         match result {
             Value::Return(_) => return result,
             Value::Error(_) => return result,
@@ -123,23 +139,23 @@ fn eval_infix_expression(operator: &Token, left: Value, right: Value) -> Value {
     }
 }
 
-fn eval_if_expression(expression: &If, env: &mut Environment) -> Value {
-    let condition = eval(Node::Expression(expression.condition.clone()), env);
+fn eval_if_expression(expression: &If, env: Rc<RefCell<Environment>>) -> Value {
+    let condition = eval(Node::Expression(expression.condition.clone()), env.clone());
     if let Value::Error(_) = condition {
         return condition;
     }
     if is_truthy(&condition) {
-        eval(Node::Statement(&*expression.consequence), env)
+        eval(Node::Statement(&*expression.consequence), env.clone())
     } else if let Some(alternative) = expression.alternative.clone() {
-        eval(Node::Statement(&*alternative), env)
+        eval(Node::Statement(&*alternative), env.clone())
     } else {
         value::NONE
     }
 }
 
-fn eval_identifier(identifier: &Identifier, env: &mut Environment) -> Value {
-    match env.get(identifier.value.clone()) {
-        Some(val) => val.clone(),
+fn eval_identifier(identifier: &Identifier, env: Rc<RefCell<Environment>>) -> Value {
+    match env.borrow().get(identifier.value.clone()) {
+        Some(val) => (*val).clone(),
         None => Value::Error(format!("Pengenal tidak ditemukan: {}", identifier.value)),
     }
 }
@@ -189,6 +205,37 @@ fn eval_boolean_infix_expression(operator: &Token, left: bool, right: bool) -> V
     }
 }
 
+fn eval_expressions(
+    expressions: &Vec<Rc<Expression>>,
+    env: Rc<RefCell<Environment>>,
+) -> Result<Vec<Value>, String> {
+    let mut result = vec![];
+    for expression in expressions {
+        let val = eval(Node::Expression(expression.clone()), env.clone());
+        if let Value::Error(error) = val {
+            return Err(error);
+        }
+        result.push(val)
+    }
+    Ok(result)
+}
+
+fn apply_function(function: Value, arguments: Vec<Value>) -> Value {
+    let Value::Function(function) = function else {
+        return Value::Error(format!("Bukan sebuah fungsi: {}", function.value_type()));
+    };
+    let mut extended_env = Environment::new_enclosed(function.env.clone());
+    for (i, arg) in arguments.into_iter().enumerate() {
+        let param = &function.parameters[i];
+        extended_env.set(param.value.to_owned(), arg.into());
+    }
+    let evaluated = eval(Node::Statement(&function.body), Rc::new(RefCell::new(extended_env)));
+    if let Value::Return(val) = evaluated {
+        return (*val).clone()
+    }
+    evaluated
+}
+
 fn is_truthy(value: &Value) -> bool {
     match value {
         Value::None => false,
@@ -199,6 +246,8 @@ fn is_truthy(value: &Value) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::{cell::RefCell, rc::Rc};
+
     use crate::{
         ast::Node,
         lexer::Lexer,
@@ -217,8 +266,8 @@ mod tests {
                 panic!("Parser has errors: {:?}", errors)
             }
         };
-        let mut env = Environment::new();
-        eval(Node::Program(program), &mut env)
+        let env = Environment::new();
+        eval(Node::Program(program), Rc::new(RefCell::new(env)))
     }
 
     fn test_integer_value(value: Value, expected: i64) {
@@ -330,6 +379,12 @@ mod tests {
             "#,
                 2,
             ),
+            (r#"
+            misal tambah = fungsi(x,y) { kembalikan x + y };
+            misal a = tambah(5,5);
+            misal b = tambah(10,10);
+            kembalikan a + b;
+            "#, 30)
         ];
 
         for (input, expected) in tests {
@@ -391,6 +446,41 @@ mod tests {
 
         for (input, expected) in tests {
             test_integer_value(test_eval(input.into()), expected)
+        }
+    }
+
+    #[test]
+    fn test_function_value() {
+        let input = "fungsi(x) { x + 2 };";
+        let evaluated = test_eval(input.into());
+        let Value::Function(function) = evaluated else {
+            panic!("Value is not a function")
+        };
+
+        assert_eq!(
+            function.parameters.len(),
+            1,
+            "Function has wrong parameters"
+        );
+        assert_eq!(function.body.to_string(), "{ (x + 2); }")
+    }
+
+    #[test]
+    fn test_function_application() {
+        let tests = vec![
+            ("misal balik = fungsi(x) { x; }; balik(5);", 5),
+            ("misal balik = fungsi(x) { kembalikan x; }; balik(5);", 5),
+            ("misal kalidua = fungsi(x) { x * 2 }; kalidua(5);", 10),
+            ("misal tambah = fungsi(x, y) { x + y; }; tambah(5, 5);", 10),
+            (
+                "misal tambah = fungsi(x, y) { x + y; }; tambah(5 + 5, tambah(5, 5))",
+                20,
+            ),
+            ("fungsi(x) { x; }(5);", 5),
+        ];
+
+        for (input, expected) in tests {
+            test_integer_value(test_eval(input.into()), expected);
         }
     }
 }

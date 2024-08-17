@@ -177,8 +177,8 @@ impl Parser {
         let body = self.parse_block_statement()?;
         let function = FunctionLiteral {
             token: Token::Function,
-            parameters,
-            body,
+            parameters: parameters.into(),
+            body: Rc::new(Statement::Block(body)),
         };
         Some(Expression::FunctionLiteral(function))
     }
@@ -219,17 +219,17 @@ impl Parser {
         Some(parameters)
     }
 
-    fn parse_call_expression(&mut self, function: Expression) -> Option<Expression> {
+    fn parse_call_expression(&mut self, function_ident: Expression) -> Option<Expression> {
         expect_current!(self, Token::LeftParen, "(");
         let arguments = self.parse_call_arguments()?;
         Some(Expression::CallExpression(CallExpression {
             token: Token::LeftParen,
-            function: Rc::new(function),
+            function_ident: Rc::new(function_ident),
             arguments,
         }))
     }
 
-    fn parse_call_arguments(&mut self) -> Option<Vec<Expression>> {
+    fn parse_call_arguments(&mut self) -> Option<Vec<Rc<Expression>>> {
         let mut args = Vec::new();
 
         if let Some(Token::RightParen) = self.peek_token {
@@ -238,12 +238,12 @@ impl Parser {
         }
 
         self.next_token();
-        args.push(self.parse_expression(Precedence::Lowest)?);
+        args.push(self.parse_expression(Precedence::Lowest)?.into());
 
         while let Some(Token::Comma) = self.peek_token {
             self.next_token();
             self.next_token();
-            args.push(self.parse_expression(Precedence::Lowest)?);
+            args.push(self.parse_expression(Precedence::Lowest)?.into());
         }
 
         expect_peek!(self, Token::RightParen, ")");
@@ -1004,11 +1004,14 @@ mod tests {
         };
         assert_eq!(function.parameters[0].value, "x");
         assert_eq!(function.parameters[1].value, "y");
-        assert_eq!(function.body.statements.len(), 1);
-        let Statement::Expression(body) = &function.body.statements[0] else {
+        let Statement::Block(body) = &*function.body else {
+            panic!("Expected a blocks statement, found: {:?}", function.body)
+        };
+        assert_eq!(body.statements.len(), 1);
+        let Statement::Expression(body) = &body.statements[0] else {
             panic!(
                 "Function body statement is not expression statement, found: {:?}",
-                &function.body.statements[0]
+                &body.statements[0]
             )
         };
         let Expression::Infix(infix) = &**body else {
@@ -1083,7 +1086,7 @@ mod tests {
         let Expression::CallExpression(call) = &**expression else {
             panic!("Expected a function literal, found: {:?}", expression)
         };
-        assert_eq!(call.function.token(), &Token::Ident("add".into()));
+        assert_eq!(call.function_ident.token(), &Token::Ident("add".into()));
         assert_eq!(call.arguments.len(), 3);
         assert_eq!(call.arguments[0].to_string(), "1");
         assert_eq!(call.arguments[1].to_string(), "(2 * 3)");
