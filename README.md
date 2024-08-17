@@ -15,8 +15,9 @@ TODO:
 - [x] Parser
     - [x] Statements
     - [x] Expressions
-- [ ] Evaluation
-- [ ] REPL
+- [x] Evaluation
+- [x] REPL
+- [ ] Add more data types
 
 ## Example
 
