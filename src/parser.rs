@@ -5,7 +5,7 @@ use anyhow::anyhow;
 use crate::{
     ast::{
         Block, BooleanLiteral, CallExpression, Expression, FunctionLiteral, Identifier, If, Infix,
-        IntegerLiteral, Let, Prefix, Program, Return, Statement,
+        IntegerLiteral, Let, Prefix, Program, Return, Statement, StringLiteral,
     },
     lexer::Lexer,
     token::{Token, TokenType},
@@ -109,6 +109,7 @@ impl Parser {
         parser.register_prefix(TokenType::LeftParen, Parser::parse_grouped_expression);
         parser.register_prefix(TokenType::If, Parser::parse_if_expression);
         parser.register_prefix(TokenType::Function, Parser::parse_function_literal);
+        parser.register_prefix(TokenType::String, Parser::parse_string_literal);
 
         parser.register_infix(TokenType::Plus, Parser::parse_infix_expression);
         parser.register_infix(TokenType::Minus, Parser::parse_infix_expression);
@@ -217,6 +218,15 @@ impl Parser {
         expect_peek!(self, Token::RightParen, ")");
         self.next_token();
         Some(parameters)
+    }
+
+    fn parse_string_literal(&mut self) -> Option<Expression> {
+        expect_current!(self, Token::String(literal), "string");
+
+        Some(Expression::StringLiteral(StringLiteral {
+            token: Token::String(literal.clone()),
+            value: literal.clone(),
+        }))
     }
 
     fn parse_call_expression(&mut self, function_ident: Expression) -> Option<Expression> {
@@ -365,7 +375,11 @@ impl Parser {
             match token {
                 Token::Let => return self.parse_let_statement().map(Statement::Let),
                 Token::Return => return self.parse_return_statement().map(Statement::Return),
-                _ => return self.parse_expression_statement().map(|e| Statement::Expression(Rc::new(e))),
+                _ => {
+                    return self
+                        .parse_expression_statement()
+                        .map(|e| Statement::Expression(Rc::new(e)))
+                }
             }
         }
         None
@@ -1136,5 +1150,28 @@ mod tests {
                 assert_eq!(parameter.to_string(), test.expected[i]);
             }
         }
+    }
+
+    #[test]
+    fn test_string_literal_expression() {
+        let input = "\"test string\"";
+        let program = Parser::new(Lexer::new(input.into()))
+            .parse_program()
+            .unwrap();
+        assert_eq!(
+            1,
+            program.statements().len(),
+            "Parsed program: {:?}",
+            program
+        );
+
+        let statement = program.statements().get(0).unwrap();
+        let Statement::Expression(expression) = statement else {
+            panic!("Expected an expression statement, found: {:?}", statement)
+        };
+        let Expression::StringLiteral(literal) = &**expression else {
+            panic!("Expected a string literal, found: {:?}", expression)
+        };
+        assert_eq!(literal.value, "test string")
     }
 }

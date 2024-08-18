@@ -31,6 +31,7 @@ pub fn eval(node: Node, env: Rc<RefCell<Environment>>) -> Value {
         },
         Node::Expression(expression) => match &*expression {
             Expression::IntegerLiteral(literal) => Value::Integer(literal.value),
+            Expression::StringLiteral(literal) => Value::String(literal.value.clone()),
             Expression::BooleanLiteral(literal) => literal.value.into(),
             Expression::FunctionLiteral(literal) => Value::Function(Rc::new(Function {
                 parameters: literal.parameters.clone(),
@@ -117,6 +118,9 @@ fn eval_infix_expression(operator: &Token, left: Value, right: Value) -> Value {
         }
         (Value::Boolean(left), Value::Boolean(right)) => {
             eval_boolean_infix_expression(operator, left, right)
+        }
+        (Value::String(left), Value::String(right)) => {
+            eval_string_infix_expression(operator, &left, &right)
         }
         (left, right) => {
             let left_type = left.value_type();
@@ -205,6 +209,16 @@ fn eval_boolean_infix_expression(operator: &Token, left: bool, right: bool) -> V
     }
 }
 
+fn eval_string_infix_expression(operator: &Token, left: &str, right: &str) -> Value {
+    match operator {
+        Token::Plus => Value::String(format!("{}{}", left, right)),
+        _ => Value::Error(format!(
+            "Operator tidak dikenal: String {} String",
+            operator
+        )),
+    }
+}
+
 fn eval_expressions(
     expressions: &Vec<Rc<Expression>>,
     env: Rc<RefCell<Environment>>,
@@ -229,9 +243,12 @@ fn apply_function(function: Value, arguments: Vec<Value>) -> Value {
         let param = &function.parameters[i];
         extended_env.set(param.value.to_owned(), arg.into());
     }
-    let evaluated = eval(Node::Statement(&function.body), Rc::new(RefCell::new(extended_env)));
+    let evaluated = eval(
+        Node::Statement(&function.body),
+        Rc::new(RefCell::new(extended_env)),
+    );
     if let Value::Return(val) = evaluated {
-        return (*val).clone()
+        return (*val).clone();
     }
     evaluated
 }
@@ -379,12 +396,15 @@ mod tests {
             "#,
                 2,
             ),
-            (r#"
+            (
+                r#"
             misal tambah = fungsi(x,y) { kembalikan x + y };
             misal a = tambah(5,5);
             misal b = tambah(10,10);
             kembalikan a + b;
-            "#, 30)
+            "#,
+                30,
+            ),
         ];
 
         for (input, expected) in tests {
@@ -496,5 +516,19 @@ mod tests {
         "#;
 
         test_integer_value(test_eval(input.into()), 4);
+    }
+
+    #[test]
+    fn test_string_literal() {
+        let input = "\"damn\"";
+        let evaluated = test_eval(input.into());
+        assert_eq!(evaluated, Value::String("damn".into()))
+    }
+
+    #[test]
+    fn test_string_concatenation() {
+        let input = "\"ez\" + \"pz\"";
+        let evaluated = test_eval(input.into());
+        assert_eq!(evaluated, Value::String("ezpz".into()))
     }
 }

@@ -5,6 +5,7 @@ use crate::ast::{Identifier, Statement};
 #[derive(Debug)]
 pub enum Value {
     Integer(i64),
+    String(String),
     Boolean(bool),
     Return(Rc<Value>),
     Function(Rc<Function>),
@@ -20,6 +21,7 @@ impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Integer(a), Self::Integer(b)) => a == b,
+            (Self::String(a), Self::String(b)) => a == b,
             (Self::Boolean(a), Self::Boolean(b)) => a == b,
             (Self::Return(a), Self::Return(b)) => a == b,
             (Self::Error(a), Self::Error(b)) => a == b,
@@ -42,6 +44,7 @@ impl Value {
     pub fn inspect(&self) -> String {
         match self {
             Value::Integer(v) => v.to_string(),
+            Value::String(v) => v.to_string(),
             Value::Boolean(v) => v.to_string(),
             Value::Return(v) => v.inspect(),
             Value::Function(v) => {
@@ -61,6 +64,7 @@ impl Value {
     pub fn value_type(&self) -> &str {
         match self {
             Value::Integer(_) => "Bilangan bulat",
+            Value::String(_) => "Untai",
             Value::Boolean(_) => "Boolean",
             Value::Return(_) => "Kembalian",
             Value::Function(_) => "Fungsi",
@@ -74,6 +78,7 @@ impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
             Value::Integer(v) => Value::Integer(v.clone()),
+            Value::String(v) => Value::String(v.clone()),
             Value::Boolean(v) => (*v).into(),
             Value::Return(v) => Value::Return(v.clone()),
             Value::Function(v) => Value::Function(v.clone()),

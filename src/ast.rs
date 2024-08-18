@@ -67,6 +67,7 @@ define_statements! {
 define_expressions! {
     Identifier
     IntegerLiteral
+    StringLiteral
     Prefix
     Infix
     BooleanLiteral
@@ -133,6 +134,13 @@ pub struct Identifier {
 pub struct IntegerLiteral {
     pub token: Token,
     pub value: i64,
+}
+
+#[derive(Debug, TokenContainer, Display)]
+#[display(fmt = "{}", value)]
+pub struct StringLiteral {
+    pub token: Token,
+    pub value: String,
 }
 
 #[derive(Debug, TokenContainer, Display)]
