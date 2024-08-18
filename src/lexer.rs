@@ -49,6 +49,21 @@ impl Lexer {
             self.increment()
         }
     }
+
+    fn read_string(&mut self) -> String {
+        let mut result = String::new();
+
+        // Skip the first double-quote
+        self.increment();
+        while self.char().is_some_and(|c| *c != '"') {
+            result.push(*self.char().unwrap());
+            self.increment();
+        }
+
+        // Skip the last double-quote
+        self.increment();
+        result
+    }
 }
 
 impl Iterator for Lexer {
@@ -80,6 +95,10 @@ impl Iterator for Lexer {
                 '>' => Token::GreaterThan,
                 '{' => Token::LeftBrace,
                 '}' => Token::RightBrace,
+                '"' => {
+                    let string = self.read_string();
+                    return Some(Token::String(string));
+                }
                 ch if is_letter(ch) => {
                     let identifier = self.read_identifier();
                     return Some(Token::parse_keyword(identifier));
@@ -124,7 +143,10 @@ mod tests {
             }
 
             10 == 10;
-            10 != 9;"#,
+            10 != 9;
+            "foobar"
+            "foo bar"
+            "#,
         );
         let tests = vec![
             Some(Token::Let),
@@ -200,6 +222,8 @@ mod tests {
             Some(Token::NotEqual),
             Some(Token::Int(9)),
             Some(Token::Semicolon),
+            Some(Token::String("foobar".into())),
+            Some(Token::String("foo bar".into())),
             None,
         ];
         let mut lexer = Lexer::new(input);

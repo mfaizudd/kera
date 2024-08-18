@@ -9,6 +9,7 @@ pub enum Token {
     Ident(String),
     #[display(fmt = "Int({})", _0)]
     Int(i64),
+    String(String),
 
     Assign,
     Plus,
@@ -44,6 +45,7 @@ pub enum TokenType {
 
     Ident,
     Int,
+    String,
 
     Assign,
     Plus,
@@ -79,6 +81,7 @@ impl From<Token> for TokenType {
             Token::Illegal => TokenType::Illegal,
             Token::Ident(_) => TokenType::Ident,
             Token::Int(_) => TokenType::Int,
+            Token::String(_) => TokenType::String,
             Token::Assign => TokenType::Assign,
             Token::Plus => TokenType::Plus,
             Token::Minus => TokenType::Minus,
@@ -133,6 +136,7 @@ impl Token {
             Token::Illegal => "illegal".into(),
             Token::Ident(i) => i.into(),
             Token::Int(i) => i.to_string(),
+            Token::String(s) => format!("\"{}\"", s),
             Token::Assign => "=".into(),
             Token::Plus => "+".into(),
             Token::Minus => "-".into(),
