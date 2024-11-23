@@ -3,13 +3,13 @@ use std::{cell::RefCell, rc::Rc};
 use crate::{
     ast::{Block, Expression, Identifier, If, Node, Program, Statement},
     token::{Token, TokenContainer},
-    value::{self, Environment, Function, Value},
+    value::{self, Array, Environment, Function, Value},
 };
 
 pub fn eval(node: Node, env: Rc<RefCell<Environment>>) -> Value {
     match node {
         Node::Program(program) => eval_program(program, env),
-        Node::Statement(statement) => match &*statement {
+        Node::Statement(statement) => match statement {
             Statement::Expression(expression) => eval(Node::Expression(expression.clone()), env),
             Statement::Block(block) => eval_block_statement(block, env),
             Statement::Return(rv) => {
@@ -33,6 +33,13 @@ pub fn eval(node: Node, env: Rc<RefCell<Environment>>) -> Value {
             Expression::IntegerLiteral(literal) => Value::Integer(literal.value),
             Expression::StringLiteral(literal) => Value::String(literal.value.clone()),
             Expression::BooleanLiteral(literal) => literal.value.into(),
+            Expression::ArrayLiteral(literal) => {
+                let elements = match eval_expressions(&literal.elements, env) {
+                    Ok(elements) => elements,
+                    Err(error) => return Value::Error(error),
+                };
+                Value::Array(Rc::new(Array { elements }))
+            }
             Expression::FunctionLiteral(literal) => Value::Function(Rc::new(Function {
                 parameters: literal.parameters.clone(),
                 body: literal.body.clone(),
@@ -58,7 +65,7 @@ pub fn eval(node: Node, env: Rc<RefCell<Environment>>) -> Value {
             }
             Expression::If(ifelse) => eval_if_expression(ifelse, env),
             Expression::Identifier(identifier) => eval_identifier(identifier, env),
-            Expression::CallExpression(call) => {
+            Expression::Call(call) => {
                 let function = eval(Node::Expression(call.function_ident.clone()), env.clone());
                 if let Value::Error(_) = function {
                     return function;
@@ -68,6 +75,17 @@ pub fn eval(node: Node, env: Rc<RefCell<Environment>>) -> Value {
                     Err(error) => return Value::Error(error),
                 };
                 apply_function(function, arguments)
+            }
+            Expression::Index(index) => {
+                let left = eval(Node::Expression(index.left.clone()), env.clone());
+                if let Value::Error(_) = left {
+                    return left;
+                }
+                let index = eval(Node::Expression(index.index.clone()), env);
+                if let Value::Error(_) = index {
+                    return index;
+                }
+                eval_index_expression(left, index)
             }
         },
     }
@@ -89,7 +107,7 @@ fn eval_program(program: Program, env: Rc<RefCell<Environment>>) -> Value {
 fn eval_block_statement(block: &Block, env: Rc<RefCell<Environment>>) -> Value {
     let mut result = Value::None;
     for statement in &block.statements {
-        result = eval(Node::Statement(&statement), env.clone());
+        result = eval(Node::Statement(statement), env.clone());
         match result {
             Value::Return(_) => return result,
             Value::Error(_) => return result,
@@ -149,9 +167,9 @@ fn eval_if_expression(expression: &If, env: Rc<RefCell<Environment>>) -> Value {
         return condition;
     }
     if is_truthy(&condition) {
-        eval(Node::Statement(&*expression.consequence), env.clone())
+        eval(Node::Statement(&expression.consequence), env.clone())
     } else if let Some(alternative) = expression.alternative.clone() {
-        eval(Node::Statement(&*alternative), env.clone())
+        eval(Node::Statement(&alternative), env.clone())
     } else {
         value::NONE
     }
@@ -166,7 +184,7 @@ fn eval_identifier(identifier: &Identifier, env: Rc<RefCell<Environment>>) -> Va
         return Value::Builtin(Rc::new(*builtin));
     }
 
-    return Value::Error(format!("Pengenal tidak ditemukan: {}", identifier.value));
+    Value::Error(format!("Pengenal tidak ditemukan: {}", identifier.value))
 }
 
 fn eval_bang_operator_expression(right: Value) -> Value {
@@ -222,6 +240,32 @@ fn eval_string_infix_expression(operator: &Token, left: &str, right: &str) -> Va
             "Operator tidak dikenal: String {} String",
             operator
         )),
+    }
+}
+
+fn eval_index_expression(left: Value, index: Value) -> Value {
+    let Value::Integer(index) = index else {
+        return Value::Error(format!(
+            "Tipe indeks tidak didukung ({})",
+            index.value_type()
+        ));
+    };
+    match left {
+        Value::Array(array) => eval_array_index_expression(array, index),
+        _ => Value::Error(format!(
+            "Operator indekstidak didukung untuk {}",
+            left.value_type()
+        )),
+    }
+}
+
+fn eval_array_index_expression(array: Rc<Array>, index: i64) -> Value {
+    let max: i64 = (array.elements.len() - 1).try_into().unwrap();
+    if index < 0 || index > max {
+        Value::None
+    } else {
+        let index: usize = index.try_into().unwrap();
+        array.elements[index].clone()
     }
 }
 
@@ -554,6 +598,38 @@ mod tests {
                 "panjang(\"lima\", \"belas\")",
                 Value::Error("Jumlah argumen salah. Dapat 2, seharusnya 1".into()),
             ),
+        ];
+
+        for (input, expected) in tests {
+            let evaluated = test_eval(input.into());
+            assert_eq!(evaluated, expected);
+        }
+    }
+
+    #[test]
+    fn test_array_literals() {
+        let input = "[1, 2 * 3, 4 + 5]";
+        let evaluated = test_eval(input.into());
+        let Value::Array(array) = evaluated else {
+            panic!("Value is not array, got: {:?}", evaluated)
+        };
+        assert_eq!(array.elements.len(), 3);
+        test_integer_value(array.elements[0].clone(), 1);
+        test_integer_value(array.elements[1].clone(), 6);
+        test_integer_value(array.elements[2].clone(), 9);
+    }
+
+    #[test]
+    fn test_array_index_expressions() {
+        let tests = vec![
+            ("[1, 2, 3][0]", Value::Integer(1)),
+            ("[4, 5, 6][1]", Value::Integer(5)),
+            ("[7, 8, 9][2]", Value::Integer(9)),
+            ("misal i = 0; [1, 2, 3][i]", Value::Integer(1)),
+            ("misal i = 5; [1, 2, 3][i - 4]", Value::Integer(2)),
+            ("misal himpunan = [7, 8, 9]; himpunan[2]", Value::Integer(9)),
+            ("[1, 2, 3][3]", Value::None),
+            ("[1, 2, 3][-1]", Value::None),
         ];
 
         for (input, expected) in tests {

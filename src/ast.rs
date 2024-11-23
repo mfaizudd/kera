@@ -73,7 +73,9 @@ define_expressions! {
     BooleanLiteral
     If
     FunctionLiteral
-    CallExpression
+    Call
+    ArrayLiteral
+    Index
 }
 
 #[derive(Debug)]
@@ -219,13 +221,13 @@ impl Display for FunctionLiteral {
 }
 
 #[derive(Debug, TokenContainer)]
-pub struct CallExpression {
+pub struct Call {
     pub token: Token,
     pub function_ident: Rc<Expression>,
     pub arguments: Vec<Rc<Expression>>,
 }
 
-impl Display for CallExpression {
+impl Display for Call {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let arguments = self
             .arguments
@@ -234,5 +236,36 @@ impl Display for CallExpression {
             .collect::<Vec<String>>()
             .join(", ");
         write!(f, "{}({})", self.function_ident, arguments)
+    }
+}
+
+#[derive(Debug, TokenContainer)]
+pub struct ArrayLiteral {
+    pub token: Token,
+    pub elements: Vec<Rc<Expression>>,
+}
+
+impl Display for ArrayLiteral {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let elements = self
+            .elements
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<String>>()
+            .join(", ");
+        write!(f, "[{}]", elements)
+    }
+}
+
+#[derive(Debug, TokenContainer)]
+pub struct Index {
+    pub token: Token,
+    pub left: Rc<Expression>,
+    pub index: Rc<Expression>,
+}
+
+impl Display for Index {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}[{}])", self.left, self.index)
     }
 }

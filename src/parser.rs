@@ -4,8 +4,9 @@ use anyhow::anyhow;
 
 use crate::{
     ast::{
-        Block, BooleanLiteral, CallExpression, Expression, FunctionLiteral, Identifier, If, Infix,
-        IntegerLiteral, Let, Prefix, Program, Return, Statement, StringLiteral,
+        ArrayLiteral, Block, BooleanLiteral, Call, Expression, FunctionLiteral,
+        Identifier, If, Index, Infix, IntegerLiteral, Let, Prefix, Program, Return,
+        Statement, StringLiteral,
     },
     lexer::Lexer,
     token::{Token, TokenType},
@@ -21,6 +22,7 @@ enum Precedence {
     Product,
     Prefix,
     Call,
+    Index,
 }
 
 impl TryFrom<Token> for Precedence {
@@ -38,6 +40,7 @@ impl TryFrom<Token> for Precedence {
             Token::Slash => Ok(Precedence::Product),
             Token::Asterisk => Ok(Precedence::Product),
             Token::Percent => Ok(Precedence::Product),
+            Token::LeftBracket => Ok(Precedence::Index),
             _ => Err(anyhow!("No precedence found for this token")),
         }
     }
@@ -111,6 +114,7 @@ impl Parser {
         parser.register_prefix(TokenType::If, Parser::parse_if_expression);
         parser.register_prefix(TokenType::Function, Parser::parse_function_literal);
         parser.register_prefix(TokenType::String, Parser::parse_string_literal);
+        parser.register_prefix(TokenType::LeftBracket, Parser::parse_array_literal);
 
         parser.register_infix(TokenType::Plus, Parser::parse_infix_expression);
         parser.register_infix(TokenType::Minus, Parser::parse_infix_expression);
@@ -122,6 +126,7 @@ impl Parser {
         parser.register_infix(TokenType::LessThan, Parser::parse_infix_expression);
         parser.register_infix(TokenType::GreaterThan, Parser::parse_infix_expression);
         parser.register_infix(TokenType::LeftParen, Parser::parse_call_expression);
+        parser.register_infix(TokenType::LeftBracket, Parser::parse_index_expression);
 
         parser
     }
@@ -231,37 +236,63 @@ impl Parser {
         }))
     }
 
+    fn parse_array_literal(&mut self) -> Option<Expression> {
+        expect_current!(self, Token::LeftBracket, "[");
+        let elements = self.parse_expression_list(Token::RightBracket)?;
+        Some(Expression::ArrayLiteral(ArrayLiteral {
+            token: Token::LeftBracket,
+            elements,
+        }))
+    }
+
+    fn parse_expression_list(&mut self, end: Token) -> Option<Vec<Rc<Expression>>> {
+        let mut list = Vec::new();
+
+        if self.peek_token.as_ref().is_some_and(|t| t == &end) {
+            self.next_token();
+            return Some(list);
+        }
+
+        self.next_token();
+        list.push(self.parse_expression(Precedence::Lowest)?.into());
+
+        while let Some(Token::Comma) = self.peek_token {
+            self.next_token();
+            self.next_token();
+            list.push(self.parse_expression(Precedence::Lowest)?.into());
+        }
+
+        if self.peek_token.as_ref().is_none_or(|t| t != &end) {
+            self.errors
+                .push(format!("Expected {}, got {:?}", end, self.peek_token));
+            return None;
+        }
+
+        self.next_token();
+        Some(list)
+    }
+
     fn parse_call_expression(&mut self, function_ident: Expression) -> Option<Expression> {
         expect_current!(self, Token::LeftParen, "(");
-        let arguments = self.parse_call_arguments()?;
-        Some(Expression::CallExpression(CallExpression {
+        let arguments = self.parse_expression_list(Token::RightParen)?;
+        Some(Expression::Call(Call {
             token: Token::LeftParen,
             function_ident: Rc::new(function_ident),
             arguments,
         }))
     }
 
-    fn parse_call_arguments(&mut self) -> Option<Vec<Rc<Expression>>> {
-        let mut args = Vec::new();
-
-        if let Some(Token::RightParen) = self.peek_token {
-            self.next_token();
-            return Some(args);
-        }
-
+    fn parse_index_expression(&mut self, left: Expression) -> Option<Expression> {
+        expect_current!(self, Token::LeftBracket, "[");
         self.next_token();
-        args.push(self.parse_expression(Precedence::Lowest)?.into());
-
-        while let Some(Token::Comma) = self.peek_token {
-            self.next_token();
-            self.next_token();
-            args.push(self.parse_expression(Precedence::Lowest)?.into());
-        }
-
-        expect_peek!(self, Token::RightParen, ")");
+        let index = self.parse_expression(Precedence::Lowest)?;
+        expect_peek!(self, Token::RightBracket, "]");
         self.next_token();
-
-        Some(args)
+        Some(Expression::Index(Index {
+            token: Token::LeftBracket,
+            left: left.into(),
+            index: index.into(),
+        }))
     }
 
     fn parse_block_statement(&mut self) -> Option<Block> {
@@ -464,7 +495,7 @@ impl Parser {
                 _ => return Some(left),
             };
         }
-        return Some(left);
+        Some(left)
     }
 
     fn parse_expression_statement(&mut self) -> Option<Expression> {
@@ -876,6 +907,10 @@ mod tests {
                 input: "add(1 + a) + b / c",
                 expected: "(add((1 + a)) + (b / c))",
             },
+            TestCase {
+                input: "a * [1, 2, 3, 4][b * c] * d",
+                expected: "((a * ([1, 2, 3, 4][(b * c)])) * d)",
+            },
         ];
         for test in tests {
             let lexer = Lexer::new(test.input.into());
@@ -1099,7 +1134,7 @@ mod tests {
         let Statement::Expression(expression) = statement else {
             panic!("Expected an expression statement, found: {:?}", statement)
         };
-        let Expression::CallExpression(call) = &**expression else {
+        let Expression::Call(call) = &**expression else {
             panic!("Expected a function literal, found: {:?}", expression)
         };
         assert_eq!(call.function_ident.token(), &Token::Ident("add".into()));
@@ -1144,7 +1179,7 @@ mod tests {
             let Statement::Expression(expression) = statement else {
                 panic!("Expected an expression statement, found: {:?}", statement)
             };
-            let Expression::CallExpression(function) = &**expression else {
+            let Expression::Call(function) = &**expression else {
                 panic!("Expected a function literal, found: {:?}", expression)
             };
             assert_eq!(function.arguments.len(), test.expected.len());
@@ -1175,5 +1210,88 @@ mod tests {
             panic!("Expected a string literal, found: {:?}", expression)
         };
         assert_eq!(literal.value, "test string")
+    }
+
+    #[test]
+    fn test_array_literal_expression() {
+        let input = "[1, 2 * 3, 4 + 5]";
+        let program = Parser::new(Lexer::new(input.into()))
+            .parse_program()
+            .unwrap();
+        assert_eq!(
+            1,
+            program.statements().len(),
+            "Parsed program: {:?}",
+            program
+        );
+
+        let statement = program.statements().get(0).unwrap();
+        let Statement::Expression(expression) = statement else {
+            panic!("Expected an expression statement, found: {:?}", statement)
+        };
+        let Expression::ArrayLiteral(literal) = &**expression else {
+            panic!("Expected a string literal, found: {:?}", expression)
+        };
+        assert_eq!(literal.elements.len(), 3);
+        let Expression::IntegerLiteral(first) = &*literal.elements[0] else {
+            panic!(
+                "Expected an integer literal, found: {:?}",
+                literal.elements[0]
+            )
+        };
+        assert_eq!(first.value, 1);
+        test_infix_expression(
+            &literal.elements[1],
+            &Token::Int(2),
+            &Token::Asterisk,
+            &Token::Int(3),
+        );
+        test_infix_expression(
+            &literal.elements[2],
+            &Token::Int(4),
+            &Token::Plus,
+            &Token::Int(5),
+        );
+    }
+
+    #[test]
+    fn test_parsing_index_expressions() {
+        let input = "arr[1 + 1]";
+        let program = Parser::new(Lexer::new(input.into()))
+            .parse_program()
+            .unwrap();
+        assert_eq!(
+            1,
+            program.statements().len(),
+            "Parsed program: {:?}",
+            program
+        );
+
+        let statement = program.statements().get(0).unwrap();
+        let Statement::Expression(expression) = statement else {
+            panic!("Expected an expression statement, found: {:?}", statement)
+        };
+        let Expression::Index(index) = &**expression else {
+            panic!("Expected an index expression, found: {:?}", expression)
+        };
+        let Expression::Identifier(identifier) = &*index.left else {
+            panic!("Expected an identifier, found: {:?}", index)
+        };
+        assert_eq!(identifier.value, "arr");
+        test_infix_expression(&index.index, &Token::Int(1), &Token::Plus, &Token::Int(1));
+    }
+
+    fn test_infix_expression(
+        expression: &Expression,
+        left: &Token,
+        operator: &Token,
+        right: &Token,
+    ) {
+        let Expression::Infix(infix) = expression else {
+            panic!("Expected an infix expression, found: {:?}", expression)
+        };
+        assert_eq!(infix.left.token(), left);
+        assert_eq!(infix.token(), operator);
+        assert_eq!(infix.right.token(), right);
     }
 }

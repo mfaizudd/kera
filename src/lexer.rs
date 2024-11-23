@@ -96,6 +96,8 @@ impl Iterator for Lexer {
                 '>' => Token::GreaterThan,
                 '{' => Token::LeftBrace,
                 '}' => Token::RightBrace,
+                '[' => Token::LeftBracket,
+                ']' => Token::RightBracket,
                 '"' => {
                     let string = self.read_string();
                     return Some(Token::String(string));
@@ -147,6 +149,7 @@ mod tests {
             10 != 9;
             "foobar"
             "foo bar"
+            [10, 2];
             "#,
         );
         let tests = vec![
@@ -225,6 +228,12 @@ mod tests {
             Some(Token::Semicolon),
             Some(Token::String("foobar".into())),
             Some(Token::String("foo bar".into())),
+            Some(Token::LeftBracket),
+            Some(Token::Int(10)),
+            Some(Token::Comma),
+            Some(Token::Int(2)),
+            Some(Token::RightBracket),
+            Some(Token::Semicolon),
             None,
         ];
         let mut lexer = Lexer::new(input);

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 use phf::phf_map;
 
@@ -13,6 +13,7 @@ pub enum Value {
     Function(Rc<Function>),
     Builtin(Rc<BuiltinFunction>),
     Error(String),
+    Array(Rc<Array>),
     None,
 }
 
@@ -65,9 +66,10 @@ impl Value {
                     .join(", ");
                 format!("fungsi({}) {}", parameters, v.body)
             }
-            Value::Builtin(_) => format!("Fungsi bawaan"),
+            Value::Builtin(_) => "Fungsi bawaan".into(),
             Value::None => String::from("Nihil"),
             Value::Error(s) => format!("Kesalahan: {s}"),
+            Value::Array(v) => v.to_string(),
         }
     }
 
@@ -81,6 +83,7 @@ impl Value {
             Value::Builtin(_) => "Bawaan",
             Value::Error(_) => "Kesalahan",
             Value::None => "Nihil",
+            Value::Array(_) => "Himpunan",
         }
     }
 }
@@ -88,7 +91,7 @@ impl Value {
 impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
-            Value::Integer(v) => Value::Integer(v.clone()),
+            Value::Integer(v) => Value::Integer(*v),
             Value::String(v) => Value::String(v.clone()),
             Value::Boolean(v) => (*v).into(),
             Value::Return(v) => Value::Return(v.clone()),
@@ -96,6 +99,7 @@ impl Clone for Value {
             Value::Builtin(v) => Value::Builtin(v.clone()),
             Value::None => NONE,
             Value::Error(msg) => Value::Error(msg.clone()),
+            Value::Array(v) => Value::Array(v.clone()),
         }
     }
 }
@@ -123,7 +127,7 @@ impl Environment {
 
     pub fn get(&self, name: String) -> Option<Rc<Value>> {
         let val = self.store.get(&name).map(|v| (*v).clone());
-        if let Some(_) = val {
+        if val.is_some() {
             return val;
         }
         let binding = self.outer.as_ref()?.clone();
@@ -141,6 +145,23 @@ pub struct Function {
     pub parameters: Rc<Vec<Identifier>>,
     pub body: Rc<Statement>,
     pub env: Rc<RefCell<Environment>>,
+}
+
+#[derive(Debug)]
+pub struct Array {
+    pub elements: Vec<Value>,
+}
+
+impl Display for Array {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let elements = self
+            .elements
+            .iter()
+            .map(|v| v.inspect())
+            .collect::<Vec<String>>()
+            .join(", ");
+        write!(f, "[{}]", elements)
+    }
 }
 
 type BuiltinFunction = fn(Vec<Value>) -> Value;
