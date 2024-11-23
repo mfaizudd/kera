@@ -158,10 +158,15 @@ fn eval_if_expression(expression: &If, env: Rc<RefCell<Environment>>) -> Value {
 }
 
 fn eval_identifier(identifier: &Identifier, env: Rc<RefCell<Environment>>) -> Value {
-    match env.borrow().get(identifier.value.clone()) {
-        Some(val) => (*val).clone(),
-        None => Value::Error(format!("Pengenal tidak ditemukan: {}", identifier.value)),
+    if let Some(val) = env.borrow().get(identifier.value.clone()) {
+        return (*val).clone();
     }
+
+    if let Some(builtin) = value::BUILTINS.get(&identifier.value) {
+        return Value::Builtin(Rc::new(*builtin));
+    }
+
+    return Value::Error(format!("Pengenal tidak ditemukan: {}", identifier.value));
 }
 
 fn eval_bang_operator_expression(right: Value) -> Value {
@@ -187,12 +192,13 @@ fn eval_integer_infix_expression(operator: &Token, left: i64, right: i64) -> Val
         Token::Minus => Value::Integer(left - right),
         Token::Asterisk => Value::Integer(left * right),
         Token::Slash => Value::Integer(left / right),
+        Token::Percent => Value::Integer(left % right),
         Token::GreaterThan => (left > right).into(),
         Token::LessThan => (left < right).into(),
         Token::Equal => (left == right).into(),
         Token::NotEqual => (left != right).into(),
         _ => Value::Error(format!(
-            "Operator tidak dikenal: Bilangan bulat {} Bilangan bulat",
+            "Operator tidak dikenal: Integer {} Integer",
             operator.literal(),
         )),
     }
@@ -235,22 +241,25 @@ fn eval_expressions(
 }
 
 fn apply_function(function: Value, arguments: Vec<Value>) -> Value {
-    let Value::Function(function) = function else {
-        return Value::Error(format!("Bukan sebuah fungsi: {}", function.value_type()));
-    };
-    let mut extended_env = Environment::new_enclosed(function.env.clone());
-    for (i, arg) in arguments.into_iter().enumerate() {
-        let param = &function.parameters[i];
-        extended_env.set(param.value.to_owned(), arg.into());
+    match function {
+        Value::Function(function) => {
+            let mut extended_env = Environment::new_enclosed(function.env.clone());
+            for (i, arg) in arguments.into_iter().enumerate() {
+                let param = &function.parameters[i];
+                extended_env.set(param.value.to_owned(), arg.into());
+            }
+            let evaluated = eval(
+                Node::Statement(&function.body),
+                Rc::new(RefCell::new(extended_env)),
+            );
+            if let Value::Return(val) = evaluated {
+                return (*val).clone();
+            }
+            evaluated
+        }
+        Value::Builtin(builtin) => builtin(arguments),
+        _ => Value::Error(format!("Bukan sebuah fungsi: {}", function.value_type())),
     }
-    let evaluated = eval(
-        Node::Statement(&function.body),
-        Rc::new(RefCell::new(extended_env)),
-    );
-    if let Value::Return(val) = evaluated {
-        return (*val).clone();
-    }
-    evaluated
 }
 
 fn is_truthy(value: &Value) -> bool {
@@ -313,6 +322,8 @@ mod tests {
             ("2 * 2", 4),
             ("(7 + 5) * 2 / 3", 8),
             ("5 + 6 * 4 / 6", 9),
+            ("2 % 2", 0),
+            ("5 % 2", 1),
         ];
         for case in tests {
             let evaluated = test_eval(case.0.into());
@@ -416,11 +427,8 @@ mod tests {
     #[test]
     fn test_error_handling() {
         let tests = vec![
-            ("0 + salah;", "Tipe tidak cocok: Bilangan bulat + Boolean"),
-            (
-                "0 + salah; 0;",
-                "Tipe tidak cocok: Bilangan bulat + Boolean",
-            ),
+            ("0 + salah;", "Tipe tidak cocok: Integer + Boolean"),
+            ("0 + salah; 0;", "Tipe tidak cocok: Integer + Boolean"),
             ("-salah", "Operator tidak dikenal: -Boolean"),
             ("salah + salah", "Operator tidak dikenal: Boolean + Boolean"),
             (
@@ -530,5 +538,27 @@ mod tests {
         let input = "\"ez\" + \"pz\"";
         let evaluated = test_eval(input.into());
         assert_eq!(evaluated, Value::String("ezpz".into()))
+    }
+
+    #[test]
+    fn test_builtin_functions() {
+        let tests = vec![
+            ("panjang(\"\")", Value::Integer(0)),
+            ("panjang(\"lima \")", Value::Integer(5)),
+            ("panjang(\"lima belas\")", Value::Integer(10)),
+            (
+                "panjang(1)",
+                Value::Error("Argumen untuk `panjang` tidak didukung (Integer)".into()),
+            ),
+            (
+                "panjang(\"lima\", \"belas\")",
+                Value::Error("Jumlah argumen salah. Dapat 2, seharusnya 1".into()),
+            ),
+        ];
+
+        for (input, expected) in tests {
+            let evaluated = test_eval(input.into());
+            assert_eq!(evaluated, expected);
+        }
     }
 }

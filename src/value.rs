@@ -1,5 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+use phf::phf_map;
+
 use crate::ast::{Identifier, Statement};
 
 #[derive(Debug)]
@@ -9,6 +11,7 @@ pub enum Value {
     Boolean(bool),
     Return(Rc<Value>),
     Function(Rc<Function>),
+    Builtin(Rc<BuiltinFunction>),
     Error(String),
     None,
 }
@@ -45,7 +48,13 @@ impl Value {
         match self {
             Value::Integer(v) => v.to_string(),
             Value::String(v) => v.to_string(),
-            Value::Boolean(v) => v.to_string(),
+            Value::Boolean(v) => {
+                if *v {
+                    "benar".into()
+                } else {
+                    "salah".into()
+                }
+            }
             Value::Return(v) => v.inspect(),
             Value::Function(v) => {
                 let parameters = v
@@ -56,6 +65,7 @@ impl Value {
                     .join(", ");
                 format!("fungsi({}) {}", parameters, v.body)
             }
+            Value::Builtin(_) => format!("Fungsi bawaan"),
             Value::None => String::from("Nihil"),
             Value::Error(s) => format!("Kesalahan: {s}"),
         }
@@ -63,11 +73,12 @@ impl Value {
 
     pub fn value_type(&self) -> &str {
         match self {
-            Value::Integer(_) => "Bilangan bulat",
+            Value::Integer(_) => "Integer",
             Value::String(_) => "Untai",
             Value::Boolean(_) => "Boolean",
             Value::Return(_) => "Kembalian",
             Value::Function(_) => "Fungsi",
+            Value::Builtin(_) => "Bawaan",
             Value::Error(_) => "Kesalahan",
             Value::None => "Nihil",
         }
@@ -82,6 +93,7 @@ impl Clone for Value {
             Value::Boolean(v) => (*v).into(),
             Value::Return(v) => Value::Return(v.clone()),
             Value::Function(v) => Value::Function(v.clone()),
+            Value::Builtin(v) => Value::Builtin(v.clone()),
             Value::None => NONE,
             Value::Error(msg) => Value::Error(msg.clone()),
         }
@@ -130,3 +142,17 @@ pub struct Function {
     pub body: Rc<Statement>,
     pub env: Rc<RefCell<Environment>>,
 }
+
+type BuiltinFunction = fn(Vec<Value>) -> Value;
+
+pub static BUILTINS: phf::Map<&'static str, BuiltinFunction> = phf_map! {
+    "panjang" => |args| {
+        if args.len() != 1 {
+            return Value::Error(format!("Jumlah argumen salah. Dapat {}, seharusnya 1", args.len()))
+        }
+        match &args[0] {
+            Value::String(val) => Value::Integer(val.len().try_into().unwrap()),
+            other => Value::Error(format!("Argumen untuk `panjang` tidak didukung ({})", other.value_type()))
+        }
+    }
+};

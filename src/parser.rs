@@ -37,6 +37,7 @@ impl TryFrom<Token> for Precedence {
             Token::Minus => Ok(Precedence::Sum),
             Token::Slash => Ok(Precedence::Product),
             Token::Asterisk => Ok(Precedence::Product),
+            Token::Percent => Ok(Precedence::Product),
             _ => Err(anyhow!("No precedence found for this token")),
         }
     }
@@ -115,6 +116,7 @@ impl Parser {
         parser.register_infix(TokenType::Minus, Parser::parse_infix_expression);
         parser.register_infix(TokenType::Slash, Parser::parse_infix_expression);
         parser.register_infix(TokenType::Asterisk, Parser::parse_infix_expression);
+        parser.register_infix(TokenType::Percent, Parser::parse_infix_expression);
         parser.register_infix(TokenType::Equal, Parser::parse_infix_expression);
         parser.register_infix(TokenType::NotEqual, Parser::parse_infix_expression);
         parser.register_infix(TokenType::LessThan, Parser::parse_infix_expression);

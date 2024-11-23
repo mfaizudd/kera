@@ -90,6 +90,7 @@ impl Iterator for Lexer {
                 }
                 '!' => Token::Bang,
                 '/' => Token::Slash,
+                '%' => Token::Percent,
                 '*' => Token::Asterisk,
                 '<' => Token::LessThan,
                 '>' => Token::GreaterThan,

@@ -17,6 +17,7 @@ pub enum Token {
     Bang,
     Asterisk,
     Slash,
+    Percent,
     LessThan,
     GreaterThan,
     Equal,
@@ -53,6 +54,7 @@ pub enum TokenType {
     Bang,
     Asterisk,
     Slash,
+    Percent,
     LessThan,
     GreaterThan,
     Equal,
@@ -88,6 +90,7 @@ impl From<Token> for TokenType {
             Token::Bang => TokenType::Bang,
             Token::Asterisk => TokenType::Asterisk,
             Token::Slash => TokenType::Slash,
+            Token::Percent => TokenType::Percent,
             Token::LessThan => TokenType::LessThan,
             Token::GreaterThan => TokenType::GreaterThan,
             Token::Equal => TokenType::Equal,
@@ -117,6 +120,12 @@ static KEYWORDS: phf::Map<&'static str, Token> = phf_map! {
     "jika" => Token::If,
     "lainnya" => Token::Else,
     "kembalikan" => Token::Return,
+    // utas -> thread
+    // untai -> string
+    // paket -> package
+    // integer
+    // desimal
+    // enum
 };
 
 impl Token {
@@ -142,6 +151,7 @@ impl Token {
             Token::Minus => "-".into(),
             Token::Bang => "!".into(),
             Token::Asterisk => "*".into(),
+            Token::Percent => "%".into(),
             Token::Slash => "/".into(),
             Token::LessThan => "<".into(),
             Token::GreaterThan => ">".into(),
