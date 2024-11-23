@@ -173,7 +173,32 @@ pub static BUILTINS: phf::Map<&'static str, BuiltinFunction> = phf_map! {
         }
         match &args[0] {
             Value::String(val) => Value::Integer(val.len().try_into().unwrap()),
+            Value::Array(arr) => Value::Integer(arr.elements.len().try_into().unwrap()),
             other => Value::Error(format!("Argumen untuk `panjang` tidak didukung ({})", other.value_type()))
         }
-    }
+    },
+    "pertama" => |args| {
+        if args.len() != 1 {
+            return Value::Error(format!("Jumlah argumen salah. Dapat {}, seharusnya 1", args.len()))
+        }
+        let Value::Array(arr) = &args[0] else {
+            return Value::Error(format!("Argument untuk `pertama` tidak didukung ({})", &args[0].value_type()))
+        };
+        match arr.elements.first() {
+            Some(val) => val.clone(),
+            None => Value::None,
+        }
+    },
+    "terakhir" => |args| {
+        if args.len() != 1 {
+            return Value::Error(format!("Jumlah argumen salah. Dapat {}, seharusnya 1", args.len()))
+        }
+        let Value::Array(arr) = &args[0] else {
+            return Value::Error(format!("Argument untuk `terakhir` tidak didukung ({})", &args[0].value_type()))
+        };
+        match arr.elements.last() {
+            Some(val) => val.clone(),
+            None => Value::None,
+        }
+    },
 };

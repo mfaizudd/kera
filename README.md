@@ -17,7 +17,7 @@ TODO:
     - [x] Expressions
 - [x] Evaluation
 - [x] REPL
-- [ ] Add more data types
+- [x] Add more data types
 
 ## Example
 
@@ -28,8 +28,9 @@ misal sepuluh = 10;
 misal tambah = fungsi(x, y) {
     kembalikan x + y;
 }
+misal himpunan = [1, 2, 3, tambah(lima, sepuluh)];
 
-misal hasil = tambah(lima, sepuluh);
+misal hasil = terakhir(himpunan);
 
 jika hasil > 10 {
     kembalikan benar;
@@ -37,3 +38,5 @@ jika hasil > 10 {
     kembalikan salah;
 }
 ```
+
+Output: `benar`

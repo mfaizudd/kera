@@ -590,12 +590,31 @@ mod tests {
             ("panjang(\"\")", Value::Integer(0)),
             ("panjang(\"lima \")", Value::Integer(5)),
             ("panjang(\"lima belas\")", Value::Integer(10)),
+            ("panjang([1,2,3])", Value::Integer(3)),
+            ("pertama([1,2,3])", Value::Integer(1)),
+            ("terakhir([1,2,3])", Value::Integer(3)),
             (
                 "panjang(1)",
                 Value::Error("Argumen untuk `panjang` tidak didukung (Integer)".into()),
             ),
             (
                 "panjang(\"lima\", \"belas\")",
+                Value::Error("Jumlah argumen salah. Dapat 2, seharusnya 1".into()),
+            ),
+            (
+                "pertama(\"himpunan\")",
+                Value::Error("Argument untuk `pertama` tidak didukung (Untai)".into()),
+            ),
+            (
+                "pertama(\"himpunan\", \"panjang\")",
+                Value::Error("Jumlah argumen salah. Dapat 2, seharusnya 1".into()),
+            ),
+            (
+                "terakhir(\"himpunan\")",
+                Value::Error("Argument untuk `terakhir` tidak didukung (Untai)".into()),
+            ),
+            (
+                "terakhir(\"himpunan\", \"panjang\")",
                 Value::Error("Jumlah argumen salah. Dapat 2, seharusnya 1".into()),
             ),
         ];
