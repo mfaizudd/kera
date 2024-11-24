@@ -29,6 +29,7 @@ impl PartialEq for Value {
             (Self::Boolean(a), Self::Boolean(b)) => a == b,
             (Self::Return(a), Self::Return(b)) => a == b,
             (Self::Error(a), Self::Error(b)) => a == b,
+            (Self::Array(a), Self::Array(b)) => a == b,
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }
@@ -147,7 +148,7 @@ pub struct Function {
     pub env: Rc<RefCell<Environment>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Array {
     pub elements: Vec<Value>,
 }
@@ -201,4 +202,35 @@ pub static BUILTINS: phf::Map<&'static str, BuiltinFunction> = phf_map! {
             None => Value::None,
         }
     },
+    "sisa" => |args| {
+        if args.len() != 1 {
+            return Value::Error(format!("Jumlah argumen salah. Dapat {}, seharusnya 1", args.len()))
+        }
+        let Value::Array(arr) = &args[0] else {
+            return Value::Error(format!("Argument untuk `sisa` tidak didukung ({})", &args[0].value_type()))
+        };
+        if arr.elements.is_empty() {
+            return Value::None;
+        }
+        Value::Array(Rc::new(Array { elements: arr.elements[1..].to_vec() }))
+    },
+    "tambah" => |args| {
+        if args.len() < 2 {
+            return Value::Error(format!("Jumlah argumen salah. Dapat {}, minimal 2", args.len()))
+        }
+        let Value::Array(arr) = &args[0] else {
+            return Value::Error(format!("Argument ke-1 untuk `tambah` tidak didukung ({})", &args[0].value_type()))
+        };
+        if arr.elements.is_empty() {
+            return Value::None;
+        }
+        let mut elements = arr.elements.clone();
+        for arg in &args[1..] {
+            if let Value::Error(_) = arg {
+                return Value::Error("Tidak dapat menambahkan nilai kesalahan ke dalam himpunan".into())
+            }
+            elements.push(arg.clone())
+        }
+        Value::Array(Rc::new(Array { elements }))
+    }
 };

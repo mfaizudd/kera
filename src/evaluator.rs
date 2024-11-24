@@ -322,7 +322,7 @@ mod tests {
         ast::Node,
         lexer::Lexer,
         parser::Parser,
-        value::{self, Environment, Value},
+        value::{self, Array, Environment, Value},
     };
 
     use super::eval;
@@ -593,6 +593,24 @@ mod tests {
             ("panjang([1,2,3])", Value::Integer(3)),
             ("pertama([1,2,3])", Value::Integer(1)),
             ("terakhir([1,2,3])", Value::Integer(3)),
+            (
+                "sisa([1,2,3])",
+                Value::Array(Rc::new(Array {
+                    elements: vec![Value::Integer(2), Value::Integer(3)],
+                })),
+            ),
+            (
+                "tambah([1,2],3,4)",
+                Value::Array(Rc::new(Array {
+                    elements: vec![Value::Integer(1), Value::Integer(2), Value::Integer(3), Value::Integer(4)],
+                })),
+            ),
+            (
+                "tambah([1,2],3, \"a\")",
+                Value::Array(Rc::new(Array {
+                    elements: vec![Value::Integer(1), Value::Integer(2), Value::Integer(3), Value::String("a".into())],
+                })),
+            ),
             (
                 "panjang(1)",
                 Value::Error("Argumen untuk `panjang` tidak didukung (Integer)".into()),
