@@ -28,9 +28,9 @@ misal sepuluh = 10;
 misal tambah = fungsi(x, y) {
     kembalikan x + y;
 }
-misal himpunan = [1, 2, 3, tambah(lima, sepuluh)];
+misal larik = [1, 2, 3, tambah(lima, sepuluh)];
 
-misal hasil = terakhir(himpunan);
+misal hasil = terakhir(larik);
 
 jika hasil > 10 {
     kembalikan benar;

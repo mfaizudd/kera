@@ -602,15 +602,26 @@ mod tests {
             (
                 "tambah([1,2],3,4)",
                 Value::Array(Rc::new(Array {
-                    elements: vec![Value::Integer(1), Value::Integer(2), Value::Integer(3), Value::Integer(4)],
+                    elements: vec![
+                        Value::Integer(1),
+                        Value::Integer(2),
+                        Value::Integer(3),
+                        Value::Integer(4),
+                    ],
                 })),
             ),
             (
                 "tambah([1,2],3, \"a\")",
                 Value::Array(Rc::new(Array {
-                    elements: vec![Value::Integer(1), Value::Integer(2), Value::Integer(3), Value::String("a".into())],
+                    elements: vec![
+                        Value::Integer(1),
+                        Value::Integer(2),
+                        Value::Integer(3),
+                        Value::String("a".into()),
+                    ],
                 })),
             ),
+            ("tipe_dari([1,2,3])", Value::String("Larik".into())),
             (
                 "panjang(1)",
                 Value::Error("Argumen untuk `panjang` tidak didukung (Integer)".into()),
@@ -620,19 +631,19 @@ mod tests {
                 Value::Error("Jumlah argumen salah. Dapat 2, seharusnya 1".into()),
             ),
             (
-                "pertama(\"himpunan\")",
+                "pertama(\"larik\")",
                 Value::Error("Argument untuk `pertama` tidak didukung (Untai)".into()),
             ),
             (
-                "pertama(\"himpunan\", \"panjang\")",
+                "pertama(\"larik\", \"panjang\")",
                 Value::Error("Jumlah argumen salah. Dapat 2, seharusnya 1".into()),
             ),
             (
-                "terakhir(\"himpunan\")",
+                "terakhir(\"larik\")",
                 Value::Error("Argument untuk `terakhir` tidak didukung (Untai)".into()),
             ),
             (
-                "terakhir(\"himpunan\", \"panjang\")",
+                "terakhir(\"larik\", \"panjang\")",
                 Value::Error("Jumlah argumen salah. Dapat 2, seharusnya 1".into()),
             ),
         ];
@@ -664,7 +675,7 @@ mod tests {
             ("[7, 8, 9][2]", Value::Integer(9)),
             ("misal i = 0; [1, 2, 3][i]", Value::Integer(1)),
             ("misal i = 5; [1, 2, 3][i - 4]", Value::Integer(2)),
-            ("misal himpunan = [7, 8, 9]; himpunan[2]", Value::Integer(9)),
+            ("misal larik = [7, 8, 9]; larik[2]", Value::Integer(9)),
             ("[1, 2, 3][3]", Value::None),
             ("[1, 2, 3][-1]", Value::None),
         ];

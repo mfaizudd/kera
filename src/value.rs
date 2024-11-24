@@ -84,7 +84,7 @@ impl Value {
             Value::Builtin(_) => "Bawaan",
             Value::Error(_) => "Kesalahan",
             Value::None => "Nihil",
-            Value::Array(_) => "Himpunan",
+            Value::Array(_) => "Larik",
         }
     }
 }
@@ -227,10 +227,16 @@ pub static BUILTINS: phf::Map<&'static str, BuiltinFunction> = phf_map! {
         let mut elements = arr.elements.clone();
         for arg in &args[1..] {
             if let Value::Error(_) = arg {
-                return Value::Error("Tidak dapat menambahkan nilai kesalahan ke dalam himpunan".into())
+                return Value::Error("Tidak dapat menambahkan nilai kesalahan ke dalam larik".into())
             }
             elements.push(arg.clone())
         }
         Value::Array(Rc::new(Array { elements }))
+    },
+    "tipe_dari" => |args| {
+        if args.len() != 1 {
+            return Value::Error(format!("Jumlah argumen salah. Dapat {}, seharusnya 1", args.len()))
+        }
+        return Value::String(args[0].value_type().into())
     }
 };
