@@ -79,6 +79,7 @@ impl Iterator for Lexer {
                 }
                 '=' => Token::Assign,
                 ';' => Token::Semicolon,
+                ':' => Token::Colon,
                 '(' => Token::LeftParen,
                 ')' => Token::RightParen,
                 ',' => Token::Comma,
@@ -150,6 +151,7 @@ mod tests {
             "foobar"
             "foo bar"
             [10, 2];
+            {"foo": "bar"}
             "#,
         );
         let tests = vec![
@@ -234,6 +236,11 @@ mod tests {
             Some(Token::Int(2)),
             Some(Token::RightBracket),
             Some(Token::Semicolon),
+            Some(Token::LeftBrace),
+            Some(Token::String("foo".into())),
+            Some(Token::Colon),
+            Some(Token::String("bar".into())),
+            Some(Token::RightBrace),
             None,
         ];
         let mut lexer = Lexer::new(input);

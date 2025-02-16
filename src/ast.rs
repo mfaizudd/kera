@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc};
+use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use derive_more::Display;
 use kera_macros::TokenContainer;
@@ -76,6 +76,7 @@ define_expressions! {
     Call
     ArrayLiteral
     Index
+    HashLiteral
 }
 
 #[derive(Debug)]
@@ -267,5 +268,23 @@ pub struct Index {
 impl Display for Index {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}[{}])", self.left, self.index)
+    }
+}
+
+#[derive(Debug, TokenContainer)]
+pub struct HashLiteral {
+    pub token: Token,
+    pub pairs: HashMap<Rc<Expression>, Rc<Expression>>,
+}
+
+impl Display for HashLiteral {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let pairs = self
+            .pairs
+            .iter()
+            .map(|(k,v)| format!("{k}: {v}"))
+            .collect::<Vec<String>>()
+            .join(", ");
+        write!(f, "{{{}}}", pairs)
     }
 }

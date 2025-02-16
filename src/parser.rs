@@ -4,9 +4,8 @@ use anyhow::anyhow;
 
 use crate::{
     ast::{
-        ArrayLiteral, Block, BooleanLiteral, Call, Expression, FunctionLiteral,
-        Identifier, If, Index, Infix, IntegerLiteral, Let, Prefix, Program, Return,
-        Statement, StringLiteral,
+        ArrayLiteral, Block, BooleanLiteral, Call, Expression, FunctionLiteral, Identifier, If,
+        Index, Infix, IntegerLiteral, Let, Prefix, Program, Return, Statement, StringLiteral,
     },
     lexer::Lexer,
     token::{Token, TokenType},
@@ -527,6 +526,7 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use core::panic;
+    use std::collections::HashMap;
 
     use crate::{
         ast::{Expression, Statement},
@@ -1293,5 +1293,65 @@ mod tests {
         assert_eq!(infix.left.token(), left);
         assert_eq!(infix.token(), operator);
         assert_eq!(infix.right.token(), right);
+    }
+
+    #[test]
+    fn test_parsing_hash_literals_string_keys() {
+        let input = r#"{"one": 1, "two": 2, "three": 3}"#;
+        let program = Parser::new(Lexer::new(input.into()))
+            .parse_program()
+            .unwrap();
+        assert_eq!(
+            1,
+            program.statements().len(),
+            "Parsed program: {:?}",
+            program
+        );
+
+        let statement = program.statements().get(0).unwrap();
+        let Statement::Expression(expression) = statement else {
+            panic!("Expected an expression statement, found: {:?}", statement)
+        };
+        let Expression::HashLiteral(hash_literal) = &**expression else {
+            panic!("Expected a hash literal, found: {:?}", expression)
+        };
+        assert_eq!(hash_literal.pairs.len(), 3);
+        let expected = HashMap::from([("one", 1), ("two", 2), ("three", 3)]);
+        for (key, value) in hash_literal.pairs.iter() {
+            let Expression::StringLiteral(key) = &**key else {
+                panic!("Expected a string literal, found: {:?}", key)
+            };
+            let Expression::IntegerLiteral(value) = &**value else {
+                panic!("Expected an integer literal, found: {:?}", value)
+            };
+            assert!(
+                expected.contains_key(key.value.as_str()),
+                "Hash map doesn't contain the expected key"
+            );
+            assert_eq!(value.value, *expected.get(key.value.as_str()).unwrap())
+        }
+    }
+
+    #[test]
+    fn test_parsing_empty_hash_literal() {
+        let input = r#"{"one": 1, "two": 2, "three": 3}"#;
+        let program = Parser::new(Lexer::new(input.into()))
+            .parse_program()
+            .unwrap();
+        assert_eq!(
+            1,
+            program.statements().len(),
+            "Parsed program: {:?}",
+            program
+        );
+
+        let statement = program.statements().get(0).unwrap();
+        let Statement::Expression(expression) = statement else {
+            panic!("Expected an expression statement, found: {:?}", statement)
+        };
+        let Expression::HashLiteral(hash_literal) = &**expression else {
+            panic!("Expected a hash literal, found: {:?}", expression)
+        };
+        assert_eq!(hash_literal.pairs.len(), 0)
     }
 }

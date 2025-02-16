@@ -25,6 +25,7 @@ pub enum Token {
 
     Comma,
     Semicolon,
+    Colon,
 
     LeftParen,
     RightParen,
@@ -64,6 +65,7 @@ pub enum TokenType {
 
     Comma,
     Semicolon,
+    Colon,
 
     LeftParen,
     RightParen,
@@ -101,6 +103,7 @@ impl From<Token> for TokenType {
             Token::NotEqual => TokenType::NotEqual,
             Token::Comma => TokenType::Comma,
             Token::Semicolon => TokenType::Semicolon,
+            Token::Colon => TokenType::Colon,
             Token::LeftParen => TokenType::LeftParen,
             Token::RightParen => TokenType::RightParen,
             Token::LeftBrace => TokenType::LeftBrace,
@@ -165,6 +168,7 @@ impl Token {
             Token::NotEqual => "!=".into(),
             Token::Comma => ",".into(),
             Token::Semicolon => ";".into(),
+            Token::Colon => ":".into(),
             Token::LeftParen => "(".into(),
             Token::RightParen => ")".into(),
             Token::LeftBrace => "{".into(),
