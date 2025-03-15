@@ -86,7 +86,8 @@ pub fn eval(node: Node, env: Rc<RefCell<Environment>>) -> Value {
                     return index;
                 }
                 eval_index_expression(left, index)
-            }
+            },
+            _ => panic!("Not supported yet")
         },
     }
 }
