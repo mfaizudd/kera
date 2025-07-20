@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, rc::Rc};
+use std::{collections::HashMap, fmt::Display, hash::Hash, rc::Rc};
 
 use derive_more::Display;
 use kera_macros::TokenContainer;
@@ -77,6 +77,122 @@ define_expressions! {
     ArrayLiteral
     Index
     HashLiteral
+}
+
+impl Hash for Statement {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Statement::Let(let_stmt) => {
+                state.write_u8(1);
+                let_stmt.name.value.hash(state);
+                let_stmt.value.hash(state);
+            }
+            Statement::Return(return_stmt) => {
+                state.write_u8(2);
+                return_stmt.return_value.hash(state);
+            }
+            Statement::Expression(expression) => {
+                state.write_u8(3);
+                expression.hash(state);
+            }
+            Statement::Block(block) => {
+                state.write_u8(4);
+                for ele in &block.statements {
+                    ele.hash(state);
+                }
+            }
+        }
+    }
+}
+
+impl Hash for Expression {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Expression::Identifier(identifier) => {
+                state.write_u8(1);
+                identifier.value.hash(state);
+            }
+            Expression::IntegerLiteral(integer_literal) => {
+                state.write_u8(2);
+                integer_literal.value.hash(state);
+            }
+            Expression::StringLiteral(string_literal) => {
+                state.write_u8(3);
+                string_literal.value.hash(state);
+            }
+            Expression::Prefix(prefix) => {
+                state.write_u8(4);
+                prefix.right.hash(state);
+            }
+            Expression::Infix(infix) => {
+                state.write_u8(5);
+                infix.left.hash(state);
+                infix.right.hash(state);
+            }
+            Expression::BooleanLiteral(boolean_literal) => {
+                state.write_u8(6);
+                boolean_literal.value.hash(state);
+            }
+            Expression::If(if_expr) => {
+                state.write_u8(7);
+                if_expr.condition.hash(state);
+            }
+            Expression::FunctionLiteral(function_literal) => {
+                state.write_u8(8);
+                for param in &*function_literal.parameters {
+                    param.value.hash(state);
+                }
+                function_literal.body.hash(state);
+            }
+            Expression::Call(call) => {
+                state.write_u8(9);
+                call.function_ident.hash(state);
+                for ele in &call.arguments {
+                    ele.hash(state);
+                }
+            }
+            Expression::ArrayLiteral(array_literal) => {
+                state.write_u8(10);
+                for ele in &array_literal.elements {
+                    ele.hash(state);
+                }
+            }
+            Expression::Index(index) => {
+                state.write_u8(11);
+                index.left.hash(state);
+                index.index.hash(state);
+            }
+            Expression::HashLiteral(hash_literal) => {
+                state.write_u8(12);
+                for (k, v) in &hash_literal.pairs {
+                    k.hash(state);
+                    v.hash(state);
+                }
+            }
+        }
+    }
+}
+
+#[cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
+impl Expression {
+    pub fn new_str(val: &str) -> Self {
+        Expression::StringLiteral(StringLiteral {
+            token: Token::String(val.into()),
+            value: val.into(),
+        })
+    }
+
+    pub fn new_int(val: i64) -> Self {
+        Expression::IntegerLiteral(IntegerLiteral {
+            token: Token::Int(val),
+            value: val,
+        })
+    }
+
+    pub fn new_bool(val: bool) -> Self {
+        let token = if val { Token::True } else { Token::False };
+        Expression::BooleanLiteral(BooleanLiteral { token, value: val })
+    }
 }
 
 #[derive(Debug)]
@@ -274,7 +390,7 @@ impl Display for Index {
 #[derive(Debug, TokenContainer)]
 pub struct HashLiteral {
     pub token: Token,
-    pub pairs: HashMap<Rc<Expression>, Rc<Expression>>,
+    pub pairs: HashMap<u64, Rc<Expression>>,
 }
 
 impl Display for HashLiteral {
@@ -282,7 +398,7 @@ impl Display for HashLiteral {
         let pairs = self
             .pairs
             .iter()
-            .map(|(k,v)| format!("{k}: {v}"))
+            .map(|(k, v)| format!("{k}: {v}"))
             .collect::<Vec<String>>()
             .join(", ");
         write!(f, "{{{}}}", pairs)
