@@ -1,4 +1,10 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    fmt::Display,
+    hash::{DefaultHasher, Hash, Hasher},
+    rc::Rc,
+};
 
 use phf::phf_map;
 
@@ -14,6 +20,7 @@ pub enum Value {
     Builtin(Rc<BuiltinFunction>),
     Error(String),
     Array(Rc<Array>),
+    Hash(Rc<HMap>),
     None,
 }
 
@@ -49,7 +56,7 @@ impl Value {
     pub fn inspect(&self) -> String {
         match self {
             Value::Integer(v) => v.to_string(),
-            Value::String(v) => v.to_string(),
+            Value::String(v) => format!("\"{v}\""),
             Value::Boolean(v) => {
                 if *v {
                     "benar".into()
@@ -71,6 +78,7 @@ impl Value {
             Value::None => String::from("Nihil"),
             Value::Error(s) => format!("Kesalahan: {s}"),
             Value::Array(v) => v.to_string(),
+            Value::Hash(h) => h.to_string(),
         }
     }
 
@@ -85,6 +93,29 @@ impl Value {
             Value::Error(_) => "Kesalahan",
             Value::None => "Nihil",
             Value::Array(_) => "Larik",
+            Value::Hash(_) => "Hash",
+        }
+    }
+
+    pub fn hash(&self) -> Result<HashKey, String> {
+        let mut hasher = DefaultHasher::new();
+        match self {
+            Value::Integer(i) => {
+                i.hash(&mut hasher);
+                Ok(HashKey(Value::Integer(i.clone())))
+            }
+            Value::String(s) => {
+                s.hash(&mut hasher);
+                Ok(HashKey(Value::String(s.clone())))
+            }
+            Value::Boolean(b) => {
+                b.hash(&mut hasher);
+                Ok(HashKey(Value::Boolean(b.clone())))
+            }
+            _ => Err(format!(
+                "Tidak bisa melakukan hash pada tipe {}",
+                self.value_type()
+            )),
         }
     }
 }
@@ -101,6 +132,7 @@ impl Clone for Value {
             Value::None => NONE,
             Value::Error(msg) => Value::Error(msg.clone()),
             Value::Array(v) => Value::Array(v.clone()),
+            Value::Hash(v) => Value::Hash(v.clone()),
         }
     }
 }
@@ -159,6 +191,39 @@ impl Display for Array {
             .elements
             .iter()
             .map(|v| v.inspect())
+            .collect::<Vec<String>>()
+            .join(", ");
+        write!(f, "[{}]", elements)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct HashKey(Value);
+
+impl Eq for HashKey {}
+
+impl Hash for HashKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match &self.0 {
+            Value::Integer(i) => i.hash(state),
+            Value::String(s) => s.hash(state),
+            Value::Boolean(b) => b.hash(state),
+            _ => panic!("Unsupported value type: {}", self.0.value_type()),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct HMap {
+    pub pairs: HashMap<HashKey, Value>,
+}
+
+impl Display for HMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let elements = self
+            .pairs
+            .iter()
+            .map(|(k, v)| format!("{}: {}", k.0.inspect(), v.inspect()))
             .collect::<Vec<String>>()
             .join(", ");
         write!(f, "[{}]", elements)

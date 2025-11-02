@@ -1,16 +1,11 @@
-use std::{
-    collections::HashMap,
-    hash::{DefaultHasher, Hash, Hasher},
-    rc::Rc,
-};
-
 use anyhow::anyhow;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     ast::{
         ArrayLiteral, Block, BooleanLiteral, Call, Expression, FunctionLiteral, HashLiteral,
-        Identifier, If, Index, Infix, IntegerLiteral, Let, Prefix, Program, Return, Statement,
-        StringLiteral,
+        HashPair, Identifier, If, Index, Infix, IntegerLiteral, Let, Prefix, Program, Return,
+        Statement, StringLiteral,
     },
     lexer::Lexer,
     token::{Token, TokenType},
@@ -252,7 +247,7 @@ impl Parser {
 
     fn parse_hash_literal(&mut self) -> Option<Expression> {
         expect_current!(self, Token::LeftBrace, "{");
-        let mut map = HashMap::new();
+        let mut pairs = vec![];
         self.next_token();
 
         // empty map
@@ -263,7 +258,7 @@ impl Parser {
         {
             let literal = Expression::HashLiteral(HashLiteral {
                 token: Token::LeftBrace,
-                pairs: map,
+                pairs,
             });
             return Some(literal);
         }
@@ -276,9 +271,7 @@ impl Parser {
         self.next_token();
         self.next_token();
         let val = self.parse_expression(Precedence::Lowest)?;
-        let mut hasher = DefaultHasher::new();
-        key.hash(&mut hasher);
-        map.insert(hasher.finish(), val.into());
+        pairs.push(HashPair(key.into(), val.into()));
 
         // subsequent entries
         while let Some(Token::Comma) = self.peek_token {
@@ -291,9 +284,7 @@ impl Parser {
             self.next_token();
             self.next_token();
             let val = self.parse_expression(Precedence::Lowest)?;
-            let mut hasher = DefaultHasher::new();
-            key.hash(&mut hasher);
-            map.insert(hasher.finish(), val.into());
+            pairs.push(HashPair(key.into(), val.into()));
         }
 
         // end maps
@@ -301,7 +292,7 @@ impl Parser {
         self.next_token();
         let literal = Expression::HashLiteral(HashLiteral {
             token: Token::LeftBrace,
-            pairs: map,
+            pairs,
         });
         Some(literal)
     }
@@ -588,10 +579,6 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use core::panic;
-    use std::{
-        collections::HashMap,
-        hash::{DefaultHasher, Hash, Hasher},
-    };
 
     use crate::{
         ast::{Expression, Statement},
@@ -1381,27 +1368,20 @@ mod tests {
             panic!("Expected a hash literal, found: {:?}", expression)
         };
         assert_eq!(hash_literal.pairs.len(), 3);
-        let expected = HashMap::from([
-            (hash(Expression::new_str("one")), 1),
-            (hash(Expression::new_str("two")), 2),
-            (hash(Expression::new_str("three")), 3),
-        ]);
-        for (key, value) in hash_literal.pairs.iter() {
-            let Expression::IntegerLiteral(value) = &**value else {
-                panic!("Expected integer literal, found: {:?}", value)
+        let expected = vec![("one", 1), ("two", 2), ("three", 3)];
+        for (i, pair) in hash_literal.pairs.iter().enumerate() {
+            let Expression::StringLiteral(key) = &*pair.0 else {
+                panic!(
+                    "Hash map doesn't contain the expected key, found: {:?}",
+                    pair.0
+                )
             };
-            assert!(
-                expected.contains_key(key),
-                "Hash map doesn't contain the expected key"
-            );
-            assert_eq!(value.value, *expected.get(key).unwrap())
+            let Expression::IntegerLiteral(value) = &*pair.1 else {
+                panic!("Expected integer literal, found: {:?}", pair.1)
+            };
+            assert_eq!(key.value, expected.get(i).unwrap().0);
+            assert_eq!(value.value, expected.get(i).unwrap().1);
         }
-    }
-
-    fn hash(expr: Expression) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        expr.hash(&mut hasher);
-        hasher.finish()
     }
 
     #[test]
@@ -1425,20 +1405,19 @@ mod tests {
             panic!("Expected a hash literal, found: {:?}", expression)
         };
         assert_eq!(hash_literal.pairs.len(), 3);
-        let expected = HashMap::from([
-            (hash(Expression::new_int(1)), "one"),
-            (hash(Expression::new_int(2)), "two"),
-            (hash(Expression::new_int(3)), "three"),
-        ]);
-        for (key, value) in hash_literal.pairs.iter() {
-            let Expression::StringLiteral(value) = &**value else {
-                panic!("Expected an integer literal, found: {:?}", value)
+        let expected = vec![(1, "one"), (2, "two"), (3, "three")];
+        for (i, pair) in hash_literal.pairs.iter().enumerate() {
+            let Expression::IntegerLiteral(key) = &*pair.0 else {
+                panic!(
+                    "Hash map doesn't contain the expected key, found: {:?}",
+                    pair.0
+                )
             };
-            assert!(
-                expected.contains_key(&key),
-                "Hash map doesn't contain the expected key"
-            );
-            assert_eq!(value.value, *expected.get(&key).unwrap())
+            let Expression::StringLiteral(value) = &*pair.1 else {
+                panic!("Expected an integer literal, found: {:?}", pair.1)
+            };
+            assert_eq!(key.value, expected.get(i).unwrap().0);
+            assert_eq!(value.value, expected.get(i).unwrap().1);
         }
     }
 
@@ -1463,19 +1442,19 @@ mod tests {
             panic!("Expected a hash literal, found: {:?}", expression)
         };
         assert_eq!(hash_literal.pairs.len(), 2);
-        let expected = HashMap::from([
-            (hash(Expression::new_bool(true)), "one"),
-            (hash(Expression::new_bool(false)), "two"),
-        ]);
-        for (key, value) in hash_literal.pairs.iter() {
-            let Expression::StringLiteral(value) = &**value else {
-                panic!("Expected an integer literal, found: {:?}", value)
+        let expected = vec![(true, "one"), (false, "two")];
+        for (i, pair) in hash_literal.pairs.iter().enumerate() {
+            let Expression::BooleanLiteral(key) = &*pair.0 else {
+                panic!(
+                    "Hash map doesn't contain the expected key, found: {:?}",
+                    pair.0
+                )
             };
-            assert!(
-                expected.contains_key(&key),
-                "Hash map doesn't contain the expected key"
-            );
-            assert_eq!(value.value, *expected.get(&key).unwrap())
+            let Expression::StringLiteral(value) = &*pair.1 else {
+                panic!("Expected an integer literal, found: {:?}", pair.1)
+            };
+            assert_eq!(key.value, expected.get(i).unwrap().0);
+            assert_eq!(value.value, expected.get(i).unwrap().1);
         }
     }
 
@@ -1500,31 +1479,34 @@ mod tests {
             panic!("Expected a hash literal, found: {:?}", expression)
         };
         assert_eq!(hash_literal.pairs.len(), 3);
-        let expected: HashMap<_, Box<dyn Fn(_)>> = HashMap::from([
+        let expected = vec![
             (
-                hash(Expression::new_str("one")),
+                "one",
                 Box::new(|e| test_infix_expression(e, &Token::Int(0), &Token::Plus, &Token::Int(1)))
                     as Box<dyn Fn(_)>,
             ),
             (
-                hash(Expression::new_str("two")),
+                "two",
                 Box::new(|e| {
                     test_infix_expression(e, &Token::Int(1), &Token::Asterisk, &Token::Int(2))
                 }),
             ),
             (
-                hash(Expression::new_str("three")),
+                "three",
                 Box::new(|e| {
                     test_infix_expression(e, &Token::Int(9), &Token::Slash, &Token::Int(3))
                 }),
             ),
-        ]);
-        for (key, value) in hash_literal.pairs.iter() {
-            assert!(
-                expected.contains_key(key),
-                "Hash map doesn't contain the expected key"
-            );
-            expected.get(key).unwrap()(&**value);
+        ];
+        for (i, pair) in hash_literal.pairs.iter().enumerate() {
+            let Expression::StringLiteral(key) = &*pair.0 else {
+                panic!(
+                    "Hash map doesn't contain the expected key, found: {:?}",
+                    pair.0
+                )
+            };
+            assert_eq!(key.value, expected.get(i).unwrap().0);
+            expected.get(i).unwrap().1(&pair.1);
         }
     }
 

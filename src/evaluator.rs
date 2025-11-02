@@ -1,9 +1,9 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
     ast::{Block, Expression, Identifier, If, Node, Program, Statement},
     token::{Token, TokenContainer},
-    value::{self, Array, Environment, Function, Value},
+    value::{self, Array, Environment, Function, HMap, Value},
 };
 
 pub fn eval(node: Node, env: Rc<RefCell<Environment>>) -> Value {
@@ -86,8 +86,20 @@ pub fn eval(node: Node, env: Rc<RefCell<Environment>>) -> Value {
                     return index;
                 }
                 eval_index_expression(left, index)
-            },
-            _ => panic!("Not supported yet")
+            }
+            Expression::HashLiteral(hash_literal) => {
+                let mut pairs = HashMap::new();
+                for v in &hash_literal.pairs {
+                    let key = eval(Node::Expression(v.0.clone()), env.clone());
+                    let key = match key.hash() {
+                        Ok(hash) => hash,
+                        Err(msg) => return Value::Error(msg),
+                    };
+                    let value = eval(Node::Expression(v.1.clone()), env.clone());
+                    pairs.insert(key, value);
+                }
+                Value::Hash(Rc::new(HMap { pairs }))
+            }
         },
     }
 }
@@ -245,16 +257,20 @@ fn eval_string_infix_expression(operator: &Token, left: &str, right: &str) -> Va
 }
 
 fn eval_index_expression(left: Value, index: Value) -> Value {
-    let Value::Integer(index) = index else {
-        return Value::Error(format!(
-            "Tipe indeks tidak didukung ({})",
-            index.value_type()
-        ));
-    };
     match left {
-        Value::Array(array) => eval_array_index_expression(array, index),
+        Value::Array(array) => {
+            let Value::Integer(index) = index else {
+                return Value::Error(format!(
+                    "Tipe indeks tidak didukung ({})",
+                    index.value_type()
+                ));
+            };
+            eval_array_index_expression(array, index)
+        }
+        // TODO: add hash indexing
+        // Value::Hash(hash) => {}
         _ => Value::Error(format!(
-            "Operator indekstidak didukung untuk {}",
+            "Operator indeks tidak didukung untuk {}",
             left.value_type()
         )),
     }
@@ -317,7 +333,7 @@ fn is_truthy(value: &Value) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc};
+    use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
     use crate::{
         ast::Node,
@@ -684,6 +700,47 @@ mod tests {
         for (input, expected) in tests {
             let evaluated = test_eval(input.into());
             assert_eq!(evaluated, expected);
+        }
+    }
+
+    #[test]
+    fn test_hash_literals() {
+        let input = r#"
+            misal dua = "dua";
+            {
+                "satu": 10 - 9,
+                dua: 1 + 1,
+                "ti" + "ga": 6 / 2,
+                4: 4,
+                benar: 5,
+                salah: 6
+            }
+        "#;
+        let expected = HashMap::from([
+            (
+                Value::String("satu".into()).hash().unwrap(),
+                Value::Integer(1),
+            ),
+            (
+                Value::String("dua".into()).hash().unwrap(),
+                Value::Integer(2),
+            ),
+            (
+                Value::String("tiga".into()).hash().unwrap(),
+                Value::Integer(3),
+            ),
+            (Value::Integer(4).hash().unwrap(), Value::Integer(4)),
+            (Value::Boolean(true).hash().unwrap(), Value::Integer(5)),
+            (Value::Boolean(false).hash().unwrap(), Value::Integer(6)),
+        ]);
+
+        let evaluated = test_eval(input.into());
+        let Value::Hash(hash) = evaluated else {
+            panic!("Value is not hash, got: {:?}", evaluated)
+        };
+        assert_eq!(hash.pairs.len(), 6);
+        for pair in &hash.pairs {
+            assert_eq!(pair.1, &expected[pair.0]);
         }
     }
 }
