@@ -257,18 +257,25 @@ fn eval_string_infix_expression(operator: &Token, left: &str, right: &str) -> Va
 }
 
 fn eval_index_expression(left: Value, index: Value) -> Value {
-    match left {
-        Value::Array(array) => {
-            let Value::Integer(index) = index else {
+    match (&left, &index) {
+        (Value::Array(array), Value::Integer(index)) => {
+            eval_array_index_expression(array.clone(), index.clone())
+        }
+        (Value::Array(_), _) => {
+            return Value::Error(format!(
+                "Tipe indeks tidak didukung ({})",
+                index.value_type()
+            ));
+        }
+        (Value::Hash(hash), hashable) => {
+            let Ok(key) = hashable.hash() else {
                 return Value::Error(format!(
                     "Tipe indeks tidak didukung ({})",
                     index.value_type()
                 ));
             };
-            eval_array_index_expression(array, index)
+            return hash.pairs.get(&key).unwrap_or_else(|| &Value::None).clone();
         }
-        // TODO: add hash indexing
-        // Value::Hash(hash) => {}
         _ => Value::Error(format!(
             "Operator indeks tidak didukung untuk {}",
             left.value_type()
@@ -512,6 +519,10 @@ mod tests {
                 "Operator tidak dikenal: Boolean + Boolean",
             ),
             ("foobar", "Pengenal tidak ditemukan: foobar"),
+            (
+                "{1: 2}[fungsi(x) { x }]",
+                "Tipe indeks tidak didukung (Fungsi)",
+            ),
         ];
 
         for (input, expected) in tests {
@@ -741,6 +752,27 @@ mod tests {
         assert_eq!(hash.pairs.len(), 6);
         for pair in &hash.pairs {
             assert_eq!(pair.1, &expected[pair.0]);
+        }
+    }
+
+    #[test]
+    fn test_hash_index_expressions() {
+        let tests = vec![
+            (r#"{"contoh": 5}["contoh"]"#, Value::Integer(5)),
+            (r#"{"contoh": 5}["salah"]"#, Value::None),
+            (
+                r#"misal kunci = "foo"; {"foo": 5}[kunci];"#,
+                Value::Integer(5),
+            ),
+            (r#"{}["foo"]"#, Value::None),
+            ("{5: 5}[5]", Value::Integer(5)),
+            ("{benar: 5}[benar]", Value::Integer(5)),
+            ("{salah: 5}[salah]", Value::Integer(5)),
+        ];
+
+        for (input, expected) in tests {
+            let evaluated = test_eval(input.into());
+            assert_eq!(evaluated, expected);
         }
     }
 }

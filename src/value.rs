@@ -93,7 +93,7 @@ impl Value {
             Value::Error(_) => "Kesalahan",
             Value::None => "Nihil",
             Value::Array(_) => "Larik",
-            Value::Hash(_) => "Hash",
+            Value::Hash(_) => "Tabel",
         }
     }
 
@@ -113,7 +113,7 @@ impl Value {
                 Ok(HashKey(Value::Boolean(b.clone())))
             }
             _ => Err(format!(
-                "Tidak bisa melakukan hash pada tipe {}",
+                "Tidak bisa melakukan proses hash pada tipe {}",
                 self.value_type()
             )),
         }
