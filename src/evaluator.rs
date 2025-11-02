@@ -249,6 +249,8 @@ fn eval_boolean_infix_expression(operator: &Token, left: bool, right: bool) -> V
 fn eval_string_infix_expression(operator: &Token, left: &str, right: &str) -> Value {
     match operator {
         Token::Plus => Value::String(format!("{}{}", left, right)),
+        Token::Equal => (left == right).into(),
+        Token::NotEqual => (left != right).into(),
         _ => Value::Error(format!(
             "Operator tidak dikenal: String {} String",
             operator
