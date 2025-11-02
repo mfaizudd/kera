@@ -56,7 +56,7 @@ impl Value {
     pub fn inspect(&self) -> String {
         match self {
             Value::Integer(v) => v.to_string(),
-            Value::String(v) => format!("\"{v}\""),
+            Value::String(v) => format!("{v}"),
             Value::Boolean(v) => {
                 if *v {
                     "benar".into()
@@ -303,5 +303,11 @@ pub static BUILTINS: phf::Map<&'static str, BuiltinFunction> = phf_map! {
             return Value::Error(format!("Jumlah argumen salah. Dapat {}, seharusnya 1", args.len()))
         }
         return Value::String(args[0].value_type().into())
+    },
+    "cetak" => |args| {
+        for arg in args {
+            println!("{}", arg.inspect());
+        }
+        Value::None
     }
 };
